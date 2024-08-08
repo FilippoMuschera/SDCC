@@ -4,19 +4,31 @@ import (
 	"SDCC/main/utils"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"sync"
 )
 
 // KVSSequential is a concrete implementation of the KVS interface
 type KVSSequential struct {
-	store map[string]string
-	mu    sync.Mutex //mutex per accedere alla Map
+	store      map[string]string
+	mu         sync.Mutex //mutex per accedere alla Map
+	clientList ClientList //lista dei client per il singolo server
+}
+
+type ClientList struct {
+	list []int
+	mu   sync.Mutex
 }
 
 // NewKVSSequential creates a new instance of KVSSequential
 func NewKVSSequential() *KVSSequential {
+	numOfClients, _ := strconv.Atoi(os.Getenv("REPLICAS"))
 	return &KVSSequential{
 		store: make(map[string]string),
+		clientList: ClientList{
+			list: make([]int, numOfClients),
+		},
 	}
 }
 
@@ -60,5 +72,26 @@ func (kvs *KVSSequential) Delete(args utils.Args, reply *utils.Response) error {
 
 	delete(kvs.store, args.Key)
 	reply.Value = ""
+	return nil
+}
+
+// EstablishFirstConnection serve ad inizializzare la connessione client-server
+func (kvs *KVSSequential) EstablishFirstConnection(args utils.Args, reply *utils.Response) error {
+	/* Per stabilire una nuova connessione client-server, il server deve andare
+	 * a creare una apposita entry per tenere traccia del numero di messaggi ricevuti
+	 * dal client. Questo è necessario per rispettare l'assunzione FIFO dell'ordinamento
+	 * dei messaggi.
+	 */
+	index, _ := strconv.Atoi(args.Value)
+	kvs.clientList.mu.Lock()
+	defer kvs.clientList.mu.Unlock()
+
+	if kvs.clientList.list[index] != 0 {
+		fmt.Println("[SERVER] Already established first connection for client ", index)
+		reply.Value = "ERROR"
+		return errors.New("tried to establish a connection that was already established")
+	}
+
+	kvs.clientList.list[index] += 1 //Aumento di uno il numero di messaggi ricevuti
 	return nil
 }

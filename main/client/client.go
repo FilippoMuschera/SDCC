@@ -34,6 +34,12 @@ func main() {
 	}
 	defer conn.Close()
 
+	connRequest := utils.NewNumberedArg("", os.Args[1], 0)
+	err = conn.Call("sequential.EstablishFirstConnection", connRequest, utils.NewResponse())
+	if err != nil {
+		fmt.Println("Failed to connect to server", index, "with error: ", err)
+	}
+
 	args := utils.NewArg("testKey", "testValue")
 	resp := utils.NewResponse()
 	err = conn.Call("sequential.Put", args, resp)
@@ -46,6 +52,12 @@ func main() {
 
 	if err == nil && resp.IsPrintable {
 		fmt.Printf("Answer from server: Value = %s\n", resp.Value)
+	}
+
+	//QUI DEVE GENERARSI L'ERRORE INVECE, perché la connessione è già stata stabilita.
+	err = conn.Call("sequential.EstablishFirstConnection", connRequest, utils.NewResponse())
+	if err != nil {
+		fmt.Println("Failed to connect to server", index, "with error: ", err)
 	}
 
 	fmt.Println("Done")
