@@ -34,13 +34,13 @@ func main() {
 	}
 	defer conn.Close()
 
-	connRequest := utils.NewNumberedArg("", os.Args[1], 0)
+	connRequest := utils.NewArg("", "", 1, index)
 	err = conn.Call("sequential.EstablishFirstConnection", connRequest, utils.NewResponse())
 	if err != nil {
 		fmt.Println("Failed to connect to server", index, "with error: ", err)
 	}
 
-	args := utils.NewArg("testKey", "testValue")
+	args := utils.NewArg("testKey", "testValue", 2, index)
 	resp := utils.NewResponse()
 	err = conn.Call("sequential.Put", args, resp)
 
@@ -48,17 +48,36 @@ func main() {
 		fmt.Println("Error in call to Put")
 	}
 
+	args.RequestNumber = 3
 	err = conn.Call("sequential.Get", args, resp)
 
 	if err == nil && resp.IsPrintable {
 		fmt.Printf("Answer from server: Value = %s\n", resp.Value)
 	}
 
-	//QUI DEVE GENERARSI L'ERRORE INVECE, perché la connessione è già stata stabilita.
-	err = conn.Call("sequential.EstablishFirstConnection", connRequest, utils.NewResponse())
-	if err != nil {
-		fmt.Println("Failed to connect to server", index, "with error: ", err)
-	}
+	/* TEST PER CONTROLLARE CHE L'ORDINAMENTO FIFO DELLE RICHIESTE NEL SERVER SIA EFFETTIVAMENTE RISPETTATO: DEBUG
+	go func() {
+		println("Entering goroutine")
+		time.Sleep(5 * time.Second)
+		println("done sleeping")
+		args := utils.NewArg("testKey", "testValue", 2, index)
+		resp := utils.NewResponse()
+		err = conn.Call("sequential.Put", args, resp)
+
+		if err != nil {
+			fmt.Println("Error in call to Put")
+		}
+		println("exiting goroutine")
+	}()
+
+	args2 := utils.NewArg("testKey", "", 3, index)
+	response2 := utils.NewResponse()
+	fmt.Println("Calling GET operation")
+	err = conn.Call("sequential.Get", args2, response2)
+
+	if err == nil && response2.IsPrintable {
+		fmt.Printf("Answer from server: Value = %s\n", response2.Value)
+	}*/
 
 	fmt.Println("Done")
 
