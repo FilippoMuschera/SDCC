@@ -30,7 +30,7 @@ func main() {
 	fmt.Printf("CONSIST_TYPE: %s\n", consistType)
 
 	// Set up RPC server
-	sequential := NewKVSSequential()
+	sequential := NewKVSSequential(index)
 	err = rpc.RegisterName("sequential", sequential)
 	if err != nil {
 		fmt.Println("Error registering RPC:", err)
