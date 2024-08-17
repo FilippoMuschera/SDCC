@@ -18,14 +18,13 @@ type LogicalClock struct {
 
 // KVSSequential is a concrete implementation of the KVS interface
 type KVSSequential struct {
-	index          int                 //indice della replica corrente
-	store          map[string]string   //KVS effettivo
-	mapMutex       sync.Mutex          //mutex per accedere alla Map
-	clientList     ClientList          //Lista dei client per il singolo server
-	requestBuffers []RequestBuffer     //buffer per le richieste dei client. Un buffer per ogni server
-	logicalClock   *LogicalClock       // clock logico del server
-	messageQueue   *utils.MessageQueue //coda di messaggi del server
-	serverList     ServerList          //struct con contatori di ricezioni/invii per ogni server
+	index        int                 //indice della replica corrente
+	store        map[string]string   //KVS effettivo
+	mapMutex     sync.Mutex          //mutex per accedere alla Map
+	clientList   ClientList          //Lista dei client per il singolo server
+	logicalClock *LogicalClock       // clock logico del server
+	messageQueue *utils.MessageQueue //coda di messaggi del server
+	serverList   ServerList          //struct con contatori di ricezioni/invii per ogni server
 }
 
 type ServerList struct {
@@ -40,20 +39,15 @@ type ClientList struct {
 	clientListMutex sync.Mutex
 }
 
-type RequestBuffer struct {
-	buffer             []utils.Args //TODO controllare se va messo []Args o *[]Args
-	requestBufferMutex sync.Mutex
-}
-
 // NewKVSSequential creates a new instance of KVSSequential
 func NewKVSSequential(index int) *KVSSequential {
 	numOfReplicas, _ := strconv.Atoi(os.Getenv("REPLICAS")) //numero di server = numero di client
 	return &KVSSequential{
+		index: index,
 		store: make(map[string]string),
 		clientList: ClientList{
 			list: make([]int, numOfReplicas),
 		},
-		requestBuffers: make([]RequestBuffer, numOfReplicas),
 		logicalClock: &LogicalClock{
 			clockValue: 0,
 		},
@@ -81,15 +75,29 @@ func (kvs *KVSSequential) Update(msg utils.Message, resp *utils.Response) error 
 		}
 	}()
 
+	<-cond0 //aspetto che cond0 sia verificata
+
 	//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
 	kvs.messageQueue.InsertAndSort(&msg)
+
+	kvs.UpdateLogicalClockAfterReception(&msg) //TODO
 
 	utils.SendAllAcks(msg, kvs.index)
 
 	kvs.WaitUntilExecutable(msg)
 
-	kvs.CallRealOperation(msg)
+	err := kvs.CallRealOperation(msg, resp)
+	if err != nil {
+		return err
+	}
 
+	//Dopo aver passato il messaggio al livello applicativo, procedo ad eliminarlo dalla coda
+	err = kvs.messageQueue.Pop(&msg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (kvs *KVSSequential) checkIfNextFromClient(request utils.Args) bool {
@@ -112,7 +120,6 @@ func (kvs *KVSSequential) WaitUntilExecutable(msg utils.Message) {
 
 	 1. È stato ricevuto l'ack da tutti gli altri server
 	 2. Per ogni altro server c'è un messaggio con clock logico scalare maggiore di questo.
-	 3. È il primo nella coda dei messaggi
 
 	 Se tutte le condizioni sono rispettate, allora la funzione ritornerà il controllo al chiamante, e procederà
 	 all'esecuzione della RPC di livello applicativo.
@@ -219,5 +226,97 @@ func (kvs *KVSSequential) checkForHigherClocks(msg utils.Message) bool {
 		}
 	}
 	return true
+
+}
+
+func (kvs *KVSSequential) ReceiveAck(msg utils.Message, resp *utils.Response) error {
+
+	kvs.messageQueue.QueueMutex.Lock()
+	defer kvs.messageQueue.QueueMutex.Unlock()
+
+	var msgToAck *utils.Message = nil
+
+	for _, m := range kvs.messageQueue.Queue {
+
+		if m.UUID == msg.UUID { //Se l'UUID corrisponde a quello di un messaggio che ho in coda -> ho trovato il messaggio relativo all'ack
+			msgToAck = m
+		}
+
+	}
+
+	if msgToAck != nil { //Il messaggio è presente in coda
+		msgToAck.AcksMutex.Lock()
+		msgToAck.Acks += 1
+		msgToAck.AcksMutex.Unlock()
+	} else { //Caso in cui io riceva l'ack di un messaggio non ancora ricevuto
+		msg.AcksMutex.Lock()
+		msg.Acks += 1 //Andrò ad inserire un nuovo messaggio e tengo conto del fatto che ha anche un ack già ricevuto
+		msg.AcksMutex.Unlock()
+		kvs.messageQueue.InsertAndSort(&msg, true)
+	}
+
+	return nil
+}
+
+func (kvs *KVSSequential) CallRealOperation(msg utils.Message, resp *utils.Response) error {
+	kvs.mapMutex.Lock()
+	defer kvs.mapMutex.Unlock()
+
+	switch msg.OpType {
+	case utils.Get:
+		// Implementazione dell'operazione Get
+		value, ok := kvs.store[msg.Args.Key]
+		if !ok {
+			return fmt.Errorf("error during Get operation: key '%s' not found", msg.Args.Key)
+		}
+		resp.Value = value
+		resp.IsPrintable = true
+		fmt.Printf("Get operation completed. Key: %s, Value: %s\n", msg.Args.Key, value)
+
+	case utils.Put:
+		// Implementazione dell'operazione Put
+		kvs.store[msg.Args.Key] = msg.Args.Value
+		fmt.Printf("Put operation completed. Key: %s, Value: %s\n", msg.Args.Key, msg.Args.Value)
+
+	case utils.Delete:
+		// Implementazione dell'operazione Delete
+		_, ok := kvs.store[msg.Args.Key]
+		if !ok {
+			return fmt.Errorf("error during Delete operation: key '%s' not found", msg.Args.Key)
+		}
+		delete(kvs.store, msg.Args.Key)
+		fmt.Printf("Delete operation completed. Key: %s\n", msg.Args.Key)
+
+	default:
+		return fmt.Errorf("unknown operation type: %s", msg.OpType)
+	}
+
+	return nil
+}
+
+func (kvs *KVSSequential) ExecuteClientRequest(msg utils.Message, resp *utils.Response) error {
+
+	/*
+			 Questa funzione non è esposta direttamente verso il client (che utilizzerà le RPC "Get", "Put" e "Delete".
+			 Nel caso di una GET questa funzione provvede a generare un evento INTERNO: verrà dunque creato un messaggio ed inserito
+			 solamente nella coda locale, senza essere inoltrato con l'Update a tutti gli altri server (proprio perché è un evento interno).
+
+			 Per ovviare al fatto che è un messaggio di un evento interno, andrà creato un messaggio i cui ACK risultano già tutti
+			 pervenuti (in maniera "fittizia"). In questo modo verrà eseguito quando sarà il primo della coda e per ogni altro processo
+			 p_k avrò ricevuto un messaggio con clock maggiore del suo.
+
+			Nel caso di una PUT o di una DELETE invece, si andrà a generare un messaggio e lo si invierà a tutti i server (compreso
+		    quello corrente) tramite la RPC Update.
+
+			Prima di poter eseguire queste operazioni bisogna accertarsi che il messaggio che si è ricevuto sia quello che ci si
+			aspettava dal client: bisogna rispettare l'ordinamento FIFO delle operazioni.
+
+			Inoltre, all'atto di creazione di un messaggio BISOGNA PRENDERE IL LOCK SUL CLOCK LOGICO, INCREMENTARLO, ASSEGNARE IL NUOVO
+			CLOCK AL MESSAGGIO, E POI RILASCIARLO!
+
+			Nel messaggio, infine, bisogna anche considerare il fatto che bisognerà inserire il numero del messaggio per l'ordinamento
+			FIFO, in modo che i server riceventi possano eventualmente bufferizzare il messaggio in fase di ricezione. Questa operazione
+			dovrà fare uso dei relativi mutex delle strutture dati associate.
+	*/
 
 }

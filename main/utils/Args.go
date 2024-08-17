@@ -5,9 +5,10 @@ type Args struct {
 	Value         string
 	RequestNumber int
 	ClientIndex   int
+	OpType        string
 }
 
-func NewArg(key string, value string, requestNumber int, clientIndex int) *Args {
-	args := &Args{Key: key, Value: value, RequestNumber: requestNumber, ClientIndex: clientIndex}
+func NewArg(key string, value string, requestNumber int, clientIndex int, opType string) *Args {
+	args := &Args{Key: key, Value: value, RequestNumber: requestNumber, ClientIndex: clientIndex, OpType: opType}
 	return args
 }
