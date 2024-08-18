@@ -28,7 +28,7 @@ type KVSSequential struct {
 }
 
 type ServerList struct {
-	SendMsgCounter    []int
+	SendMsgCounter    int
 	sendMsgMutex      sync.Mutex
 	ReceiveMsgCounter []int
 	receiveMsgMutex   sync.Mutex
@@ -53,7 +53,7 @@ func NewKVSSequential(index int) *KVSSequential {
 		},
 		messageQueue: utils.NewMessageQueue(),
 		serverList: ServerList{
-			SendMsgCounter:    make([]int, numOfReplicas),
+			SendMsgCounter:    0,
 			ReceiveMsgCounter: make([]int, numOfReplicas),
 		},
 	}
@@ -62,11 +62,13 @@ func NewKVSSequential(index int) *KVSSequential {
 // Update è la funzione dedicata alla ricezione di messaggi che si scambiano i server
 func (kvs *KVSSequential) Update(msg utils.Message, resp *utils.Response) error {
 
+	fmt.Println("Entering update")
+
 	//Condizione 0: FIFO ordering per le richieste
 	cond0 := make(chan bool)
 	go func() {
 		for {
-			if kvs.checkIfNextFromServer(msg) {
+			if kvs.checkIfNextFromServer(&msg) {
 				cond0 <- true
 				return
 			}
@@ -77,16 +79,20 @@ func (kvs *KVSSequential) Update(msg utils.Message, resp *utils.Response) error 
 
 	<-cond0 //aspetto che cond0 sia verificata
 
+	fmt.Println("Starting msg processing after FIFO const check")
+
 	//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
 	kvs.messageQueue.InsertAndSort(&msg)
 
-	kvs.UpdateLogicalClockAfterReception(&msg) //TODO
+	kvs.UpdateLogicalClockAfterReception(&msg)
 
-	utils.SendAllAcks(msg, kvs.index)
+	fmt.Println("Clock updated after reception, new value = ", kvs.logicalClock.clockValue)
 
-	kvs.WaitUntilExecutable(msg)
+	utils.SendAllAcks(msg)
 
-	err := kvs.CallRealOperation(msg, resp)
+	kvs.WaitUntilExecutable(&msg)
+
+	err := kvs.CallRealOperation(&msg, resp)
 	if err != nil {
 		return err
 	}
@@ -104,7 +110,7 @@ func (kvs *KVSSequential) checkIfNextFromClient(request utils.Args) bool {
 	kvs.clientList.clientListMutex.Lock()
 	defer kvs.clientList.clientListMutex.Unlock()
 	isNext := kvs.clientList.list[request.ClientIndex]+1 == request.RequestNumber
-	//TODO controllare se aggiornare qui il numero di ricezioni o se deve farlo il chiamante
+
 	if isNext {
 		kvs.clientList.list[request.ClientIndex] += 1
 	}
@@ -112,7 +118,7 @@ func (kvs *KVSSequential) checkIfNextFromClient(request utils.Args) bool {
 	return isNext
 }
 
-func (kvs *KVSSequential) WaitUntilExecutable(msg utils.Message) {
+func (kvs *KVSSequential) WaitUntilExecutable(msg *utils.Message) {
 	/*
 	 Questa funzione ha lo scopo di ritornare il controllo alla RPC "originale" (Get, Put, Delete), da cui deve essere
 	 invocata, solamente quando il relativo messaggio rispetta tutte le condizioni dell'algoritmo del multicast
@@ -148,6 +154,7 @@ func (kvs *KVSSequential) WaitUntilExecutable(msg utils.Message) {
 				return
 			}
 			time.Sleep(SLEEP_TIME)
+			cond2 <- true //TODO DA TOGLIERE È SOLO PER DEBUG!!!!!
 		}
 	}()
 
@@ -171,7 +178,7 @@ func (kvs *KVSSequential) WaitUntilExecutable(msg utils.Message) {
 
 }
 
-func (kvs *KVSSequential) checkIfFirstInQueue(msg utils.Message) bool {
+func (kvs *KVSSequential) checkIfFirstInQueue(msg *utils.Message) bool {
 	kvs.messageQueue.QueueMutex.Lock()
 	defer kvs.messageQueue.QueueMutex.Unlock()
 
@@ -180,7 +187,7 @@ func (kvs *KVSSequential) checkIfFirstInQueue(msg utils.Message) bool {
 
 }
 
-func (kvs *KVSSequential) checkIfNextFromServer(msg utils.Message) bool {
+func (kvs *KVSSequential) checkIfNextFromServer(msg *utils.Message) bool {
 	kvs.serverList.receiveMsgMutex.Lock()
 	defer kvs.serverList.receiveMsgMutex.Unlock()
 
@@ -195,14 +202,15 @@ func (kvs *KVSSequential) checkIfNextFromServer(msg utils.Message) bool {
 
 }
 
-func (kvs *KVSSequential) checkForAllAcks(msg utils.Message) bool {
-	msg.AcksMutex.Lock()
-	defer msg.AcksMutex.Unlock()
+func (kvs *KVSSequential) checkForAllAcks(msg *utils.Message) bool {
+	msg.AckLock()
+	defer msg.AckUnlock()
+	fmt.Println("Entering checkForAllAcks. Acks = ", msg.Acks)
 
 	return msg.Acks == utils.NumberOfReplicas
 }
 
-func (kvs *KVSSequential) checkForHigherClocks(msg utils.Message) bool {
+func (kvs *KVSSequential) checkForHigherClocks(msg *utils.Message) bool {
 	//Questo metodo scorre la lista kvs.MessageQueue di Message, e controlla se, per ogni
 	//server, è stato ricevuto almeno un messaggio con clock maggiore di quello passato
 	// come parametro
@@ -231,6 +239,8 @@ func (kvs *KVSSequential) checkForHigherClocks(msg utils.Message) bool {
 
 func (kvs *KVSSequential) ReceiveAck(msg utils.Message, resp *utils.Response) error {
 
+	fmt.Println("Receiving ack")
+
 	kvs.messageQueue.QueueMutex.Lock()
 	defer kvs.messageQueue.QueueMutex.Unlock()
 
@@ -245,20 +255,21 @@ func (kvs *KVSSequential) ReceiveAck(msg utils.Message, resp *utils.Response) er
 	}
 
 	if msgToAck != nil { //Il messaggio è presente in coda
-		msgToAck.AcksMutex.Lock()
+		msgToAck.AckLock()
 		msgToAck.Acks += 1
-		msgToAck.AcksMutex.Unlock()
+		msgToAck.AckUnlock()
+		fmt.Println("Ack updated for existing msg")
 	} else { //Caso in cui io riceva l'ack di un messaggio non ancora ricevuto
-		msg.AcksMutex.Lock()
+		msg.AckLock()
 		msg.Acks += 1 //Andrò ad inserire un nuovo messaggio e tengo conto del fatto che ha anche un ack già ricevuto
-		msg.AcksMutex.Unlock()
+		msg.AckUnlock()
 		kvs.messageQueue.InsertAndSort(&msg, true)
 	}
 
 	return nil
 }
 
-func (kvs *KVSSequential) CallRealOperation(msg utils.Message, resp *utils.Response) error {
+func (kvs *KVSSequential) CallRealOperation(msg *utils.Message, resp *utils.Response) error {
 	kvs.mapMutex.Lock()
 	defer kvs.mapMutex.Unlock()
 
@@ -294,7 +305,7 @@ func (kvs *KVSSequential) CallRealOperation(msg utils.Message, resp *utils.Respo
 	return nil
 }
 
-func (kvs *KVSSequential) ExecuteClientRequest(msg utils.Message, resp *utils.Response) error {
+func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Response, op string) error {
 
 	/*
 			 Questa funzione non è esposta direttamente verso il client (che utilizzerà le RPC "Get", "Put" e "Delete".
@@ -319,4 +330,111 @@ func (kvs *KVSSequential) ExecuteClientRequest(msg utils.Message, resp *utils.Re
 			dovrà fare uso dei relativi mutex delle strutture dati associate.
 	*/
 
+	//Condizione 0: FIFO ordering per le richieste dai client
+	fmt.Println("Entering ExecuteClientRequest")
+
+	cond0 := make(chan bool)
+	go func() {
+		for {
+			if kvs.checkIfNextFromClient(arg) {
+				cond0 <- true
+				return
+			}
+			// Utilizzo di `time.Sleep` per ridurre l'uso della CPU
+			time.Sleep(SLEEP_TIME)
+		}
+	}()
+
+	<-cond0 //aspetto che cond0 sia verificata
+	//A questo punto sono sicuro di star processando la richiesta che mi aspettavo dal client.
+
+	fmt.Println("FIFO check passed")
+
+	switch op {
+	case utils.Get: //EVENTO INTERNO
+		kvs.logicalClock.clockMutex.Lock()
+		clockValue := kvs.logicalClock.clockValue
+		msg := utils.NewMessage(arg, clockValue, kvs.index, 0, op)
+		msg.Acks = utils.NumberOfReplicas //"simulo" ack da tutti i server dato che è op. interna
+
+		kvs.logicalClock.clockValue = clockValue + 1
+		kvs.logicalClock.clockMutex.Unlock()
+
+		//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
+		kvs.messageQueue.InsertAndSort(msg)
+
+		kvs.WaitUntilExecutable(msg)
+
+		err := kvs.CallRealOperation(msg, resp)
+		if err != nil {
+			return err
+		}
+
+		//Dopo aver passato il messaggio al livello applicativo, procedo ad eliminarlo dalla coda
+		err = kvs.messageQueue.Pop(msg)
+		if err != nil {
+			return err
+		}
+
+	case utils.Put, utils.Delete: //EVENTO ESTERNO
+
+		kvs.logicalClock.clockMutex.Lock()
+		kvs.serverList.sendMsgMutex.Lock()
+		kvs.serverList.SendMsgCounter += 1
+
+		sendCounter := kvs.serverList.SendMsgCounter
+		clockValue := kvs.logicalClock.clockValue
+		msg := utils.NewMessage(arg, clockValue, kvs.index, sendCounter, op)
+
+		kvs.logicalClock.clockValue = clockValue + 1
+		kvs.logicalClock.clockMutex.Unlock()
+
+		kvs.serverList.sendMsgMutex.Unlock()
+
+		err := utils.SendToAllServer(*msg)
+		if err != nil {
+			fmt.Println("Error sending to all server:", err)
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func (kvs *KVSSequential) UpdateLogicalClockAfterReception(m *utils.Message) {
+	kvs.logicalClock.clockMutex.Lock()
+	defer kvs.logicalClock.clockMutex.Unlock()
+
+	if kvs.logicalClock.clockValue < m.ClockValue { //Il messaggio ha un clock maggiore di quello corrente, allora aggiorno
+		kvs.logicalClock.clockValue = m.ClockValue
+	}
+}
+
+func (kvs *KVSSequential) Get(args utils.Args, reply *utils.Response) error {
+	// Chiamata al metodo ExecuteClientRequest con l'operazione "Get"
+	err := kvs.ExecuteClientRequest(args, reply, utils.Get)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (kvs *KVSSequential) Put(args utils.Args, reply *utils.Response) error {
+	// Chiamata al metodo ExecuteClientRequest con l'operazione "Put"
+	fmt.Println("PUT operation requested")
+
+	err := kvs.ExecuteClientRequest(args, reply, utils.Put)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (kvs *KVSSequential) Delete(args utils.Args, reply *utils.Response) error {
+	// Chiamata al metodo ExecuteClientRequest con l'operazione "Delete"
+	err := kvs.ExecuteClientRequest(args, reply, utils.Delete)
+	if err != nil {
+		return err
+	}
+	return nil
 }

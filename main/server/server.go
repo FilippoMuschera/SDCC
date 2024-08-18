@@ -47,7 +47,6 @@ func main() {
 	}
 
 	for {
-		fmt.Println("Waiting for connection...")
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("SERVER: Errore nell'accettare la connessione dal client:", err)
@@ -57,7 +56,6 @@ func main() {
 		// Avvia la gestione della connessione in un goroutine
 		go func(conn net.Conn) {
 			// Servi la connessione RPC
-			fmt.Printf("Serving connection from %s\n", conn.RemoteAddr().String())
 			rpc.ServeConn(conn)
 
 			defer func() {

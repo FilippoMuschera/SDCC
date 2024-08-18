@@ -14,11 +14,11 @@ const (
 )
 
 type Message struct {
-	Args             Args        //Args della richiesta
-	ClockValue       int         //clock logico scalare
-	Acks             int         //ack ricevuti
-	AcksMutex        *sync.Mutex //mutex per modificare il numero di ack
-	UUID             uuid.UUID   //unique identifier del messaggio
+	Args             Args       //Args della richiesta
+	ClockValue       int        //clock logico scalare
+	Acks             int        //ack ricevuti
+	acksMutex        sync.Mutex //mutex per modificare il numero di ack
+	UUID             uuid.UUID  //unique identifier del messaggio
 	ServerIndex      int
 	ServerMsgCounter int
 	OpType           string
@@ -99,4 +99,11 @@ func (mq *MessageQueue) Pop(m *Message) error {
 	mq.Queue = mq.Queue[1:]
 
 	return nil
+}
+
+func (m *Message) AckLock() {
+	m.acksMutex.Lock()
+}
+func (m *Message) AckUnlock() {
+	m.acksMutex.Unlock()
 }

@@ -37,28 +37,54 @@ func GetServerName(index int) string {
 
 }
 
-func SendAllAcks(msg Message, currentServerIndex int) {
+func SendAllAcks(msg Message) {
+	fmt.Println("Sending all acks")
+
 	for i := 0; i < NumberOfReplicas; i++ {
-		if i != currentServerIndex {
 
-			port := GetServerPort(i)
-			//TODO delay
-			serverName := GetServerName(i)
-			addr := serverName + port
+		port := GetServerPort(i)
+		//TODO delay
+		serverName := GetServerName(i)
+		addr := serverName + port
 
-			conn, err := rpc.Dial("tcp", addr)
-			if err != nil {
-				fmt.Println("Failed to connect to server", i)
-				os.Exit(1)
-			}
-			defer conn.Close()
+		conn, err := rpc.Dial("tcp", addr)
+		if err != nil {
+			fmt.Println("Failed to connect to server", i)
+			os.Exit(1)
+		}
+		defer conn.Close()
 
-			err = conn.Call("sequential.ReceiveAck", msg, NewResponse()) //TODO mettere ReceiveAck nel server obv
-			if err != nil {
-				fmt.Println("Failed to send ack to server", i, "with error: ", err)
-			}
-
+		err = conn.Call("sequential.ReceiveAck", msg, NewResponse())
+		if err != nil {
+			fmt.Println("Failed to send ack to server", i, "with error: ", err)
 		}
 
 	}
+}
+
+func SendToAllServer(msg Message) error {
+	fmt.Println("Sending to all server")
+
+	for i := 0; i < NumberOfReplicas; i++ {
+
+		port := GetServerPort(i)
+		//TODO delay
+		serverName := GetServerName(i)
+		addr := serverName + port
+
+		conn, err := rpc.Dial("tcp", addr)
+		if err != nil {
+			fmt.Println("Failed to connect to server", i)
+			return err
+		}
+		defer conn.Close()
+
+		err = conn.Call("sequential.Update", msg, NewResponse())
+		if err != nil {
+			fmt.Println("Failed to send ack to server", i, "with error: ", err)
+			return err
+		}
+
+	}
+	return nil
 }

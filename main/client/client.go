@@ -34,50 +34,51 @@ func main() {
 	}
 	defer conn.Close()
 
-	connRequest := utils.NewArg("", "", 1, index)
-	err = conn.Call("sequential.EstablishFirstConnection", connRequest, utils.NewResponse())
-	if err != nil {
-		fmt.Println("Failed to connect to server", index, "with error: ", err)
-	}
-
-	args := utils.NewArg("testKey", "testValue", 2, index)
+	args := utils.NewArg("testKey", "testValue", 1, index)
 	resp := utils.NewResponse()
 	err = conn.Call("sequential.Put", args, resp)
 
 	if err != nil {
-		fmt.Println("Error in call to Put")
+		fmt.Println("Error in call to Put:", err)
 	}
 
-	args.RequestNumber = 3
+	args.RequestNumber = 2
 	err = conn.Call("sequential.Get", args, resp)
 
 	if err == nil && resp.IsPrintable {
 		fmt.Printf("Answer from server: Value = %s\n", resp.Value)
 	}
 
-	/* TEST PER CONTROLLARE CHE L'ORDINAMENTO FIFO DELLE RICHIESTE NEL SERVER SIA EFFETTIVAMENTE RISPETTATO: DEBUG
-	go func() {
-		println("Entering goroutine")
-		time.Sleep(5 * time.Second)
-		println("done sleeping")
-		args := utils.NewArg("testKey", "testValue", 2, index)
-		resp := utils.NewResponse()
-		err = conn.Call("sequential.Put", args, resp)
+	args.RequestNumber = 3
+	args.Value = "AnotherValue"
+	err = conn.Call("sequential.Put", args, resp)
 
-		if err != nil {
-			fmt.Println("Error in call to Put")
-		}
-		println("exiting goroutine")
-	}()
+	if err != nil {
+		fmt.Println("Error in call to Put:", err)
+	}
 
-	args2 := utils.NewArg("testKey", "", 3, index)
-	response2 := utils.NewResponse()
-	fmt.Println("Calling GET operation")
-	err = conn.Call("sequential.Get", args2, response2)
+	args.RequestNumber = 4
+	err = conn.Call("sequential.Get", args, resp)
 
-	if err == nil && response2.IsPrintable {
-		fmt.Printf("Answer from server: Value = %s\n", response2.Value)
-	}*/
+	if err == nil && resp.IsPrintable {
+		fmt.Printf("Answer from server: Value = %s\n", resp.Value)
+	}
+
+	args.RequestNumber = 5
+	err = conn.Call("sequential.Delete", args, resp)
+
+	if err != nil {
+		fmt.Println("Error in call to Put:", err)
+	}
+
+	args.RequestNumber = 6
+	err = conn.Call("sequential.Get", args, resp)
+
+	if err == nil && resp.IsPrintable {
+		fmt.Printf("Answer from server: Value = %s\n", resp.Value)
+	} else if err != nil {
+		fmt.Println("Error in call to Get (as I should here):", err)
+	}
 
 	fmt.Println("Done")
 
