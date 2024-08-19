@@ -46,14 +46,16 @@ func main() {
 	}
 
 	//local
-	addr := "localhost:" + utils.GetServerPort(index)
+	port := utils.GetServerPort(index)
+	addr := "localhost:" + port
 	fmt.Println("Registering server ", index, " at address: ", addr)
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		fmt.Println("Error listening:", err)
 		return
 	}
 
+	fmt.Printf("Server %d: ready to listen on port %s\n", index, port)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {

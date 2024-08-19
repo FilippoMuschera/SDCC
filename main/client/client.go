@@ -16,7 +16,7 @@ func init() {
 	}
 }
 
-func main() {
+func notMain() {
 	// Check command line arguments
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run client.go <client_index>")

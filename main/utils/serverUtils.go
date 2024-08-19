@@ -58,6 +58,7 @@ func SendAllAcks(msg Message) {
 		if err != nil {
 			fmt.Println("Failed to send ack to server", i, "with error: ", err)
 		}
+		fmt.Printf("\033[32;1mSent ACK to server %d at address %s [UUID %s]\033[0m\n", i, addr, msg.UUID)
 
 	}
 }
@@ -79,11 +80,12 @@ func SendToAllServer(msg Message) error {
 		}
 		defer conn.Close()
 
-		err = conn.Call("sequential.Update", msg, NewResponse())
+		err = conn.Call("sequential.Update", msg, NewResponse()) //TODO mi sa che sto rimanendo bloccato qui
 		if err != nil {
-			fmt.Println("Failed to send ack to server", i, "with error: ", err)
+			fmt.Println("---------------- Failed to send message to server", i, "with error: ", err)
 			return err
 		}
+		fmt.Printf("\033[93mCalled Update on address %s\033[0m\n", addr)
 
 	}
 	return nil
