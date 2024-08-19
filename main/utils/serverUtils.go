@@ -80,11 +80,8 @@ func SendToAllServer(msg Message) error {
 		}
 		defer conn.Close()
 
-		err = conn.Call("sequential.Update", msg, NewResponse()) //TODO mi sa che sto rimanendo bloccato qui
-		if err != nil {
-			fmt.Println("---------------- Failed to send message to server", i, "with error: ", err)
-			return err
-		}
+		conn.Go("sequential.Update", msg, NewResponse(), nil) //TODO mi sa che sto rimanendo bloccato qui
+
 		fmt.Printf("\033[93mCalled Update on address %s\033[0m\n", addr)
 
 	}
