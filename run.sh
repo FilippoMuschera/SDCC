@@ -5,6 +5,7 @@ export REPLICAS=1
 export LOCAL=1
 export DOCKER=0
 export CONSIST_TYPE=Sequential
+export DEBUG=0
 
 cd bin || exit
 rm server client

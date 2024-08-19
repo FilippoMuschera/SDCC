@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -42,7 +43,7 @@ type ClientList struct {
 // NewKVSSequential creates a new instance of KVSSequential
 func NewKVSSequential(index int) *KVSSequential {
 	numOfReplicas, _ := strconv.Atoi(os.Getenv("REPLICAS")) //numero di server = numero di client
-	return &KVSSequential{
+	kvs := &KVSSequential{
 		index: index,
 		store: make(map[string]string),
 		clientList: ClientList{
@@ -57,6 +58,8 @@ func NewKVSSequential(index int) *KVSSequential {
 			ReceiveMsgCounter: make([]int, numOfReplicas),
 		},
 	}
+	go kvs.PeriodicCheckForEndKeys()
+	return kvs
 }
 
 // Update è la funzione dedicata alla ricezione di messaggi che si scambiano i server
@@ -154,7 +157,6 @@ func (kvs *KVSSequential) WaitUntilExecutable(msg *utils.Message) {
 				return
 			}
 			time.Sleep(SLEEP_TIME)
-			cond2 <- true //TODO DA TOGLIERE È SOLO PER DEBUG!!!!!
 		}
 	}()
 
@@ -286,6 +288,9 @@ func (kvs *KVSSequential) CallRealOperation(msg *utils.Message, resp *utils.Resp
 
 	case utils.Put:
 		// Implementazione dell'operazione Put
+		if msg.Args.Key == utils.EndKey && msg.Args.Value == utils.EndValue {
+			return nil //Se è il messaggio fittizio di End, non eseguire realmente la PUT
+		}
 		kvs.store[msg.Args.Key] = msg.Args.Value
 		fmt.Printf("Put operation completed. Key: %s, Value: %s\n", msg.Args.Key, msg.Args.Value)
 
@@ -348,7 +353,7 @@ func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Respo
 	<-cond0 //aspetto che cond0 sia verificata
 	//A questo punto sono sicuro di star processando la richiesta che mi aspettavo dal client.
 
-	fmt.Println("FIFO check passed")
+	fmt.Println("FIFO check ('client-side') passed")
 
 	switch op {
 	case utils.Get: //EVENTO INTERNO
@@ -367,6 +372,10 @@ func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Respo
 
 		err := kvs.CallRealOperation(msg, resp)
 		if err != nil {
+			err2 := kvs.messageQueue.Pop(msg)
+			if err2 != nil {
+				return err2
+			}
 			return err
 		}
 
@@ -437,4 +446,64 @@ func (kvs *KVSSequential) Delete(args utils.Args, reply *utils.Response) error {
 		return err
 	}
 	return nil
+}
+
+func (kvs *KVSSequential) PeriodicCheckForEndKeys() {
+	for {
+		kvs.checkForEndKeys()
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func (kvs *KVSSequential) checkForEndKeys() {
+	kvs.messageQueue.QueueMutex.Lock()
+	defer kvs.messageQueue.QueueMutex.Unlock()
+
+	fmt.Println("[checkForEndKeys] Queue is actually of size ", len(kvs.messageQueue.Queue))
+	for _, msg := range kvs.messageQueue.Queue {
+		fmt.Println(msg.Args.Key, ", ", msg.Args.Value, " - OP = ", msg.OpType, " #", msg.ServerMsgCounter)
+	}
+
+	// Verifica se la lunghezza della coda è uguale a numberOfReplicas
+	if len(kvs.messageQueue.Queue) != utils.NumberOfReplicas {
+		return
+	}
+
+	// Controlla che tutti i messaggi nella coda abbiano Args.Key == utils.EndKey e Args.Value == utils.EndValue
+	for _, msg := range kvs.messageQueue.Queue {
+		if msg.Args.Key != utils.EndKey || msg.Args.Value != utils.EndValue {
+			return
+		}
+	}
+
+	// Stampa in maniera formattata il contenuto della map
+	kvs.mapMutex.Lock()
+	defer kvs.mapMutex.Unlock()
+
+	// Trova la lunghezza massima delle chiavi e dei valori per la formattazione
+	maxKeyLen := 3 // La lunghezza minima per "Key"
+	maxValLen := 5 // La lunghezza minima per "Value"
+	for key, value := range kvs.store {
+		if len(key) > maxKeyLen {
+			maxKeyLen = len(key)
+		}
+		if len(value) > maxValLen {
+			maxValLen = len(value)
+		}
+	}
+
+	// Stampa l'intestazione della tabella
+	fmt.Println(strings.Repeat("-", maxKeyLen+maxValLen+7))
+	fmt.Printf("| %-*s | %-*s |\n", maxKeyLen, "Key", maxValLen, "Value")
+	fmt.Println(strings.Repeat("-", maxKeyLen+maxValLen+7))
+
+	// Stampa ogni riga della tabella con key e value
+	for key, value := range kvs.store {
+		fmt.Printf("| %-*s | %-*s |\n", maxKeyLen, key, maxValLen, value)
+	}
+
+	// Stampa la linea di chiusura della tabella
+	fmt.Println(strings.Repeat("-", maxKeyLen+maxValLen+7))
+
+	os.Exit(0) //fine esecuzione del server
 }
