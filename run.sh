@@ -1,10 +1,11 @@
 #!/bin/bash
 
 
-export REPLICAS=1
+export REPLICAS=3
 export LOCAL=1
 export DOCKER=0
 export CONSIST_TYPE=Sequential
+export DEBUG=0
 
 cd bin || exit
 rm server client
@@ -37,8 +38,5 @@ for ((i=0; i<REPLICAS; i++)); do
     echo "Server $i started"
 done
 
-# Lanciare le istanze del client
-for ((i=0; i<REPLICAS; i++)); do
-    open_terminal "./bin/client $i"
-    echo "Client $i started"
-done
+    open_terminal "./bin/client"
+    echo "Client started"

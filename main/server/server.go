@@ -7,7 +7,15 @@ import (
 	"net/rpc"
 	"os"
 	"strconv"
+	"time"
 )
+
+func init() {
+	if os.Getenv("DEBUG") == "1" {
+		fmt.Println("Waiting for debugger to attach...")
+		time.Sleep(10 * time.Second) // Pause for 20 seconds to attach debugger
+	}
+}
 
 func main() {
 	// Check command line arguments
@@ -30,7 +38,7 @@ func main() {
 	fmt.Printf("CONSIST_TYPE: %s\n", consistType)
 
 	// Set up RPC server
-	sequential := NewKVSSequential()
+	sequential := NewKVSSequential(index)
 	err = rpc.RegisterName("sequential", sequential)
 	if err != nil {
 		fmt.Println("Error registering RPC:", err)
@@ -38,16 +46,17 @@ func main() {
 	}
 
 	//local
-	addr := "localhost:" + utils.GetServerPort(index)
+	port := utils.GetServerPort(index)
+	addr := "localhost:" + port
 	fmt.Println("Registering server ", index, " at address: ", addr)
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		fmt.Println("Error listening:", err)
 		return
 	}
 
+	fmt.Printf("Server %d: ready to listen on port %s\n", index, port)
 	for {
-		fmt.Println("Waiting for connection...")
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("SERVER: Errore nell'accettare la connessione dal client:", err)
@@ -57,7 +66,6 @@ func main() {
 		// Avvia la gestione della connessione in un goroutine
 		go func(conn net.Conn) {
 			// Servi la connessione RPC
-			fmt.Printf("Serving connection from %s\n", conn.RemoteAddr().String())
 			rpc.ServeConn(conn)
 
 			defer func() {
