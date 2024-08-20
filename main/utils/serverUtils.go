@@ -38,10 +38,11 @@ func GetServerName(index int) string {
 
 }
 
-func SendAllAcks(msg Message) {
+func SendAllAcks(msg MessageNA) {
 	fmt.Println("Sending all acks")
 
 	var wg sync.WaitGroup
+	sent := 0
 	wg.Add(NumberOfReplicas)
 
 	for i := 0; i < NumberOfReplicas; i++ {
@@ -56,22 +57,32 @@ func SendAllAcks(msg Message) {
 			fmt.Println("Failed to connect to server", i)
 			os.Exit(1)
 		}
-		defer conn.Close()
 
 		go func() {
 			err = conn.Call("sequential.ReceiveAck", msg, NewResponse())
 			if err != nil {
 				fmt.Println("Failed to send ack to server", i, "with error: ", err)
+				return
+			}
+			fmt.Printf("\033[32;1mSent ACK to server %d at address %s [UUID %s]\033[0m\n", i, addr, msg.UUID)
+			sent += 1
+			err := conn.Close()
+			if err != nil {
+				fmt.Println("Error closing ack connection: ", err)
 			}
 			wg.Done()
-			fmt.Printf("\033[32;1mSent ACK to server %d at address %s [UUID %s]\033[0m\n", i, addr, msg.UUID)
+
 		}()
 
 	}
 	wg.Wait()
+	if sent != NumberOfReplicas {
+		fmt.Printf("[ERROR] Sent %d acks instead of %d", sent, NumberOfReplicas)
+		os.Exit(1)
+	}
 }
 
-func SendToAllServer(msg Message) error {
+func SendToAllServer(msg MessageNA) error {
 	fmt.Println("Sending to all server")
 
 	var wg sync.WaitGroup
@@ -89,12 +100,15 @@ func SendToAllServer(msg Message) error {
 			fmt.Println("Failed to connect to server", i)
 			return err
 		}
-		defer conn.Close()
 
 		go func() {
 			err := conn.Call("sequential.Update", msg, NewResponse())
 			if err != nil {
 				fmt.Printf("\033[31mFailed to send msg to server %d with error: %s\033[0m\n", i, err)
+			}
+			err2 := conn.Close()
+			if err != nil {
+				fmt.Println("WARNING:::: Error closing ack connection: ", err2)
 			}
 			wg.Done()
 		}()

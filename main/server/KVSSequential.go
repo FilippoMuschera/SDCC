@@ -63,14 +63,23 @@ func NewKVSSequential(index int) *KVSSequential {
 }
 
 // Update è la funzione dedicata alla ricezione di messaggi che si scambiano i server
-func (kvs *KVSSequential) Update(msg utils.Message, resp *utils.Response) error {
+func (kvs *KVSSequential) Update(m utils.MessageNA, resp *utils.Response) error {
 
-	fmt.Println("\033[38;5;213mUPDATE STARTING NOW\033[0m")
+	//fmt.Println("\033[38;5;213mUPDATE STARTING NOW\033[0m")
+	msg := &utils.Message{
+		Args:             m.Args,
+		ClockValue:       m.ClockValue,
+		UUID:             m.UUID,
+		ServerIndex:      m.ServerIndex,
+		ServerMsgCounter: m.ServerMsgCounter,
+		OpType:           m.OpType,
+	}
+	msg.Acks.Store(0)
 	//Condizione 0: FIFO ordering per le richieste
 	cond0 := make(chan bool)
 	go func() {
 		for {
-			if kvs.checkIfNextFromServer(&msg) {
+			if kvs.checkIfNextFromServer(msg) {
 				cond0 <- true
 				return
 			}
@@ -82,9 +91,9 @@ func (kvs *KVSSequential) Update(msg utils.Message, resp *utils.Response) error 
 	<-cond0 //aspetto che cond0 sia verificata
 
 	//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
-	kvs.messageQueue.InsertAndSort(&msg)
+	msg = kvs.messageQueue.InsertAndSort(msg)
 
-	kvs.UpdateLogicalClockAfterReception(&msg)
+	kvs.UpdateLogicalClockAfterReception(msg)
 
 	if msg.Args.Key == utils.EndKey && msg.Args.Value == utils.EndValue {
 		//Se è un messaggio di End l'importante è che venga inserito in coda, poi non va
@@ -93,17 +102,18 @@ func (kvs *KVSSequential) Update(msg utils.Message, resp *utils.Response) error 
 		return nil
 	}
 
-	utils.SendAllAcks(msg)
+	utils.SendAllAcks(m) //Uso la versione del messaggio senza lock per inviare l'ack
 
-	kvs.WaitUntilExecutable(&msg)
+	fmt.Printf("MSG %s ready to wait for exec", msg.UUID)
+	kvs.WaitUntilExecutable(msg)
 
-	err := kvs.CallRealOperation(&msg, resp)
+	err := kvs.CallRealOperation(msg, resp)
 	if err != nil {
 		return err
 	}
 
 	//Dopo aver passato il messaggio al livello applicativo, procedo ad eliminarlo dalla coda
-	err = kvs.messageQueue.Pop(&msg)
+	err = kvs.messageQueue.Pop(msg)
 	if err != nil {
 		return err
 	}
@@ -171,11 +181,11 @@ func (kvs *KVSSequential) WaitUntilExecutable(msg *utils.Message) {
 	}()
 
 	<-cond1
-	fmt.Printf("\033[32mControllo sugli ACK superato\033[0m\n")
+	fmt.Printf("\033[32mControllo sugli ACK superato per il messaggio %s\033[0m\n", msg.UUID)
 	<-cond2
-	fmt.Printf("\033[32mControllo sul clock maggiore superato\033[0m\n")
+	fmt.Printf("\033[32mControllo sul clock maggiore superato per il messaggio %s\033[0m\n", msg.UUID)
 	<-cond3
-	fmt.Printf("\033[32mControllo sulla posizione in coda superato\033[0m\n")
+	fmt.Printf("\033[32mControllo sulla posizione in coda superato per il messaggio %s\033[0m\n", msg.UUID)
 
 	//Una volta verificatesi tutte le condizioni, il controllo può tornare alla funzione chiamante e il messaggio
 	//può essere passato, di fatto, al livello applicativo.
@@ -195,7 +205,7 @@ func (kvs *KVSSequential) checkIfFirstInQueue(msg *utils.Message) bool {
 	kvs.messageQueue.QueueMutex.Lock()
 	defer kvs.messageQueue.QueueMutex.Unlock()
 
-	// Stampa l'attuale composizione della coda di messaggi in giallo scuro
+	/*// Stampa l'attuale composizione della coda di messaggi in giallo scuro
 	fmt.Print("\033[33mCurrent message queue composition:\033[0m\n") // Giallo scuro per intestazione
 
 	for _, m := range kvs.messageQueue.Queue {
@@ -203,7 +213,7 @@ func (kvs *KVSSequential) checkIfFirstInQueue(msg *utils.Message) bool {
 	}
 
 	// Stampa l'UUID del messaggio che stiamo controllando
-	fmt.Printf("\033[33mChecking message UUID: %s\033[0m\n", msg.UUID) // Giallo scuro per UUID del messaggio in controllo
+	fmt.Printf("\033[33mChecking message UUID: %s\033[0m\n", msg.UUID) // Giallo scuro per UUID del messaggio in controllo*/
 
 	// Verifica se il messaggio è il primo nella coda
 	firstInQueue := kvs.messageQueue.Queue[0]
@@ -226,10 +236,13 @@ func (kvs *KVSSequential) checkIfNextFromServer(msg *utils.Message) bool {
 }
 
 func (kvs *KVSSequential) checkForAllAcks(msg *utils.Message) bool {
-	msg.AckLock()
-	defer msg.AckUnlock()
 
-	return msg.Acks == utils.NumberOfReplicas
+	currentAcks := msg.Acks.Load()
+	if currentAcks != int32(utils.NumberOfReplicas) {
+		fmt.Printf("\033[38;5;179mI see %d acks but I would need %d instead for msg %s\033[0m\n", currentAcks, utils.NumberOfReplicas, msg.UUID)
+	}
+
+	return int(currentAcks) == utils.NumberOfReplicas
 }
 
 func (kvs *KVSSequential) checkForHigherClocks(msg *utils.Message) bool {
@@ -259,12 +272,12 @@ func (kvs *KVSSequential) checkForHigherClocks(msg *utils.Message) bool {
 
 }
 
-func (kvs *KVSSequential) ReceiveAck(msg utils.Message, resp *utils.Response) error {
+//goland:noinspection GoUnusedParameter
+func (kvs *KVSSequential) ReceiveAck(msg utils.MessageNA, resp *utils.Response) error {
 
-	fmt.Println("Receiving ack for message ", msg.UUID)
+	//fmt.Println("Receiving ack for message ", msg.UUID)
 
 	kvs.messageQueue.QueueMutex.Lock()
-	defer kvs.messageQueue.QueueMutex.Unlock()
 
 	var msgToAck *utils.Message = nil
 
@@ -277,21 +290,25 @@ func (kvs *KVSSequential) ReceiveAck(msg utils.Message, resp *utils.Response) er
 	}
 
 	if msgToAck != nil { //Il messaggio è presente in coda
-		msgToAck.AckLock()
-		n := msgToAck.Acks
-		fmt.Printf("\033[35;1m[%s] al momento ha %d ACK\n\033[0m", msg.UUID, n)
-		msgToAck.Acks = n + 1
-		fmt.Printf("\033[35;1m[%s] ora ha invece %d ACK\n\033[0m", msg.UUID, msgToAck.Acks)
-		msgToAck.AckUnlock()
+		kvs.messageQueue.QueueMutex.Unlock()
+		msgToAck.Acks.Add(1)
 	} else { //Caso in cui io riceva l'ack di un messaggio non ancora ricevuto
-		msg.AckLock()
-		n := msg.Acks
-		msg.Acks = n + 1 //Andrò ad inserire un nuovo messaggio e tengo conto del fatto che ha anche un ack già ricevuto
-		msg.AckUnlock()
-		kvs.messageQueue.InsertAndSort(&msg, true)
+		newMsg := &utils.Message{
+			Args:             msg.Args,
+			ClockValue:       msg.ClockValue,
+			UUID:             msg.UUID,
+			ServerIndex:      msg.ServerIndex,
+			ServerMsgCounter: msg.ServerMsgCounter,
+			OpType:           msg.OpType,
+		}
+		newMsg.Acks.Store(1)
+
+		_ = kvs.messageQueue.InsertAndSort(newMsg, true)
+		kvs.messageQueue.QueueMutex.Unlock()
+
 	}
 
-	fmt.Println("----------------------------------- OUT OF RECEIVE ACK -------------------------------------------")
+	//fmt.Println("----------------------------------- OUT OF RECEIVE ACK -------------------------------------------")
 	return nil
 }
 
@@ -299,7 +316,7 @@ func (kvs *KVSSequential) CallRealOperation(msg *utils.Message, resp *utils.Resp
 	kvs.mapMutex.Lock()
 	defer kvs.mapMutex.Unlock()
 
-	fmt.Printf("\033[32mExecuting operation %s for key %s\033[0m\n", msg.OpType, msg.Args.Key)
+	//fmt.Printf("\033[32mExecuting operation %s for key %s\033[0m\n", msg.OpType, msg.Args.Key)
 
 	switch msg.OpType {
 	case utils.Get:
@@ -383,13 +400,13 @@ func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Respo
 		kvs.logicalClock.clockMutex.Lock()
 		clockValue := kvs.logicalClock.clockValue
 		msg := utils.NewMessage(arg, clockValue, kvs.index, 0, op)
-		msg.Acks = utils.NumberOfReplicas //"simulo" ack da tutti i server dato che è op. interna
+		msg.Acks.Store(int32(utils.NumberOfReplicas)) //"simulo" ack da tutti i server dato che è op. interna
 
 		kvs.logicalClock.clockValue = clockValue + 1
 		kvs.logicalClock.clockMutex.Unlock()
 
 		//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
-		kvs.messageQueue.InsertAndSort(msg)
+		msg = kvs.messageQueue.InsertAndSort(msg)
 
 		kvs.WaitUntilExecutable(msg)
 
@@ -416,7 +433,7 @@ func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Respo
 
 		sendCounter := kvs.serverList.SendMsgCounter
 		clockValue := kvs.logicalClock.clockValue
-		msg := utils.NewMessage(arg, clockValue, kvs.index, sendCounter, op)
+		msg := utils.NewMessageNA(arg, clockValue, kvs.index, sendCounter, op)
 
 		kvs.logicalClock.clockValue = clockValue + 1
 		kvs.logicalClock.clockMutex.Unlock()
@@ -453,7 +470,6 @@ func (kvs *KVSSequential) Get(args utils.Args, reply *utils.Response) error {
 }
 func (kvs *KVSSequential) Put(args utils.Args, reply *utils.Response) error {
 	// Chiamata al metodo ExecuteClientRequest con l'operazione "Put"
-	fmt.Println("PUT operation requested")
 
 	err := kvs.ExecuteClientRequest(args, reply, utils.Put)
 	if err != nil {

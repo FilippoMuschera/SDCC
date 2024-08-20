@@ -5,6 +5,7 @@ import (
 	"github.com/google/uuid"
 	"slices"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -16,14 +17,29 @@ const (
 )
 
 type Message struct {
-	Args             Args       //Args della richiesta
-	ClockValue       int        //clock logico scalare
-	Acks             int        //ack ricevuti
-	acksMutex        sync.Mutex //mutex per modificare il numero di ack
-	UUID             uuid.UUID  //unique identifier del messaggio
+	Args             Args         //Args della richiesta
+	ClockValue       int          //clock logico scalare
+	Acks             atomic.Int32 //ack ricevuti
+	UUID             uuid.UUID    //unique identifier del messaggio
 	ServerIndex      int
 	ServerMsgCounter int
 	OpType           string
+}
+
+type MessageNA struct {
+	Args             Args      //Args della richiesta
+	ClockValue       int       //clock logico scalare
+	UUID             uuid.UUID //unique identifier del messaggio
+	ServerIndex      int
+	ServerMsgCounter int
+	OpType           string
+}
+
+func NewMessageNA(args Args, clockValue int, serverIndex int, msgCounter int, opType string) *MessageNA {
+	id := uuid.New()
+	msg := &MessageNA{Args: args, ClockValue: clockValue, UUID: id, ServerIndex: serverIndex, ServerMsgCounter: msgCounter, OpType: opType}
+	return msg
+
 }
 
 type MessageQueue struct {
@@ -33,14 +49,17 @@ type MessageQueue struct {
 
 func NewMessage(args Args, clockValue int, serverIndex int, msgCounter int, opType string) *Message {
 	id := uuid.New()
-	return &Message{Args: args, ClockValue: clockValue, Acks: 0, UUID: id, ServerIndex: serverIndex, ServerMsgCounter: msgCounter, OpType: opType}
+	msg := &Message{Args: args, ClockValue: clockValue, UUID: id, ServerIndex: serverIndex, ServerMsgCounter: msgCounter, OpType: opType}
+	msg.Acks.Store(0)
+	return msg
+
 }
 
 func NewMessageQueue() *MessageQueue {
 	return &MessageQueue{Queue: make([]*Message, 0)}
 }
 
-func (mq *MessageQueue) InsertAndSort(message *Message, alreadyLocked ...bool) {
+func (mq *MessageQueue) InsertAndSort(message *Message, alreadyLocked ...bool) *Message {
 	if len(alreadyLocked) == 0 {
 		mq.QueueMutex.Lock()
 		defer mq.QueueMutex.Unlock()
@@ -51,8 +70,8 @@ func (mq *MessageQueue) InsertAndSort(message *Message, alreadyLocked ...bool) {
 	//fare nulla
 	for _, m := range mq.Queue {
 		if m.UUID == message.UUID {
-			// Messaggio duplicato trovato, esci dalla funzione senza fare nulla
-			return
+			// Messaggio duplicato trovato, esci dalla funzione e ritorna l'indirizzo di quello già presente
+			return m
 		}
 	}
 
@@ -79,6 +98,18 @@ func (mq *MessageQueue) InsertAndSort(message *Message, alreadyLocked ...bool) {
 		}
 		return 0
 	})
+
+	// Stampa l'attuale composizione della coda di messaggi in giallo scuro
+	fmt.Print("\033[33mCurrent message queue composition:\033[0m\n") // Giallo scuro per intestazione
+
+	for _, m := range mq.Queue {
+		fmt.Printf("UUID: %s, OpType: %s, Acks: %d, originatingServer: %d, CLOCK: %d\n", m.UUID, m.OpType, m.Acks.Load(), m.ServerIndex, m.ClockValue)
+	}
+
+	// Stampa l'UUID del messaggio che stiamo controllando
+	fmt.Printf("\033[33mChecking message UUID: %s\033[0m\n", message.UUID) // Giallo scuro per UUID del messaggio in controllo*/
+
+	return message
 }
 
 func (mq *MessageQueue) Pop(m *Message) error {
@@ -101,12 +132,15 @@ func (mq *MessageQueue) Pop(m *Message) error {
 	// Rimuove il primo messaggio dalla coda
 	mq.Queue = mq.Queue[1:]
 
-	return nil
-}
+	// Stampa l'attuale composizione della coda di messaggi in giallo scuro
+	fmt.Print("\033[33mCurrent message queue composition after POP:\033[0m\n") // Giallo scuro per intestazione
 
-func (m *Message) AckLock() {
-	m.acksMutex.Lock()
-}
-func (m *Message) AckUnlock() {
-	m.acksMutex.Unlock()
+	for _, m := range mq.Queue {
+		fmt.Printf("UUID: %s, OpType: %s, Acks: %d, originatingServer: %d, CLOCK: %d\n", m.UUID, m.OpType, m.Acks.Load(), m.ServerIndex, m.ClockValue)
+	}
+
+	// Stampa l'UUID del messaggio che stiamo controllando
+	fmt.Printf("\033[33mChecking message UUID: %s\033[0m\n", m.UUID) // Giallo scuro per UUID del messaggio in controllo*/
+
+	return nil
 }

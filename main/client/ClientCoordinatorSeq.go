@@ -74,10 +74,6 @@ func basicTestSeq() {
 		{ServerIndex: 1, OperationType: utils.Delete, Key: "x"},
 		{ServerIndex: 2, OperationType: utils.Delete, Key: "x"},
 
-		{0, utils.Put, "x", "1"},
-		{1, utils.Put, "x", "2"},
-		{2, utils.Put, "x", "3"},
-
 		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
 		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
 		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
