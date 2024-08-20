@@ -65,7 +65,6 @@ func NewKVSSequential(index int) *KVSSequential {
 // Update è la funzione dedicata alla ricezione di messaggi che si scambiano i server
 func (kvs *KVSSequential) Update(m utils.MessageNA, resp *utils.Response) error {
 
-	//fmt.Println("\033[38;5;213mUPDATE STARTING NOW\033[0m")
 	msg := &utils.Message{
 		Args:             m.Args,
 		ClockValue:       m.ClockValue,
@@ -205,16 +204,6 @@ func (kvs *KVSSequential) checkIfFirstInQueue(msg *utils.Message) bool {
 	kvs.messageQueue.QueueMutex.Lock()
 	defer kvs.messageQueue.QueueMutex.Unlock()
 
-	/*// Stampa l'attuale composizione della coda di messaggi in giallo scuro
-	fmt.Print("\033[33mCurrent message queue composition:\033[0m\n") // Giallo scuro per intestazione
-
-	for _, m := range kvs.messageQueue.Queue {
-		fmt.Printf("UUID: %s, OpType: %s, Acks: %d, originatingServer: %d, CLOCK: %d\n", m.UUID, m.OpType, m.Acks, m.ServerIndex, m.ClockValue)
-	}
-
-	// Stampa l'UUID del messaggio che stiamo controllando
-	fmt.Printf("\033[33mChecking message UUID: %s\033[0m\n", msg.UUID) // Giallo scuro per UUID del messaggio in controllo*/
-
 	// Verifica se il messaggio è il primo nella coda
 	firstInQueue := kvs.messageQueue.Queue[0]
 	return firstInQueue.UUID == msg.UUID
@@ -275,8 +264,6 @@ func (kvs *KVSSequential) checkForHigherClocks(msg *utils.Message) bool {
 //goland:noinspection GoUnusedParameter
 func (kvs *KVSSequential) ReceiveAck(msg utils.MessageNA, resp *utils.Response) error {
 
-	//fmt.Println("Receiving ack for message ", msg.UUID)
-
 	kvs.messageQueue.QueueMutex.Lock()
 
 	var msgToAck *utils.Message = nil
@@ -308,15 +295,12 @@ func (kvs *KVSSequential) ReceiveAck(msg utils.MessageNA, resp *utils.Response) 
 
 	}
 
-	//fmt.Println("----------------------------------- OUT OF RECEIVE ACK -------------------------------------------")
 	return nil
 }
 
 func (kvs *KVSSequential) CallRealOperation(msg *utils.Message, resp *utils.Response) error {
 	kvs.mapMutex.Lock()
 	defer kvs.mapMutex.Unlock()
-
-	//fmt.Printf("\033[32mExecuting operation %s for key %s\033[0m\n", msg.OpType, msg.Args.Key)
 
 	switch msg.OpType {
 	case utils.Get:
