@@ -70,13 +70,17 @@ func basicTestSeq() {
 		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
 		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
 
-		/*{ServerIndex: 0, OperationType: utils.Delete, Key: "x"},
+		{ServerIndex: 0, OperationType: utils.Delete, Key: "x"},
 		{ServerIndex: 1, OperationType: utils.Delete, Key: "x"},
 		{ServerIndex: 2, OperationType: utils.Delete, Key: "x"},
 
+		{0, utils.Put, "x", "1"},
+		{1, utils.Put, "x", "2"},
+		{2, utils.Put, "x", "3"},
+
 		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
 		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},*/
+		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
 	}
 	operations = append(operations, addEndOps(utils.NumberOfReplicas)...)
 	// Creazione di un WaitGroup
@@ -127,53 +131,51 @@ func executeSequentialOperation(index int, operations []Operation) {
 		}
 	}(conn)
 
-	// Channel to receive RPC responses
-	doneChan := make(chan *rpc.Call, len(operations))
+	// Crea un WaitGroup per sincronizzare tutte le goroutine
+	var wg sync.WaitGroup
 
 	// Contatore per la numerazione delle richieste
 	var requestNumber int
 
-	// Invio delle operazioni filtrate per questo client
 	for _, op := range operations {
 		if op.ServerIndex != index {
 			continue
 		}
-		time.Sleep(500 * time.Millisecond) //TODO fare vera synch, non attese
 		requestNumber++
 		args := utils.NewArg(op.Key, op.Value, requestNumber, index)
 		resp := utils.NewResponse()
 
 		fmt.Printf("\033[36m[CLIENT %d] Requesting to server %s. Operation %s with key %s [RN: %d]\033[0m\n", index, addr, op.OperationType, args.Key, requestNumber)
 
-		switch op.OperationType {
-		case utils.Put:
-			conn.Go("sequential.Put", args, resp, doneChan)
-		case utils.Get:
-			conn.Go("sequential.Get", args, resp, doneChan)
-		case utils.Delete:
-			conn.Go("sequential.Delete", args, resp, doneChan)
-		}
-	}
+		// Esegui la chiamata in una goroutine
+		wg.Add(1) // Incrementa il contatore per ogni chiamata
+		go func(opType string, args *utils.Args, resp *utils.Response) {
+			defer wg.Done() // Decrementa il contatore al termine della chiamata
+			var err error
 
-	// Attesa delle risposte
-	for i := 0; i < requestNumber-1; i++ { // -1: IGNORO L'ENDMESSAGE PERCHÈ È UNA SORTA DI "DISCONNECT", NON UN VERO MESSAGGIO CHE RICHIEDE UNA RISPOSTA
-		call := <-doneChan
-		if call.Error != nil {
-			fmt.Printf("[CLIENT %d] Error in call to %s: %v\n", index, operations[i].OperationType, call.Error)
-			continue
-		}
-		// Asserzione di tipo per verificare che `call.Reply` sia effettivamente un `*utils.Response`
-		if response, ok := call.Reply.(*utils.Response); ok {
-			// Se l'asserzione ha successo, controlla se `IsPrintable` è true e stampa il valore
-			if response.IsPrintable {
-				fmt.Printf("[CLIENT %d] Answer from server: GET Value = %s\n", index, response.Value)
+			switch opType {
+			case utils.Put:
+				err = conn.Call("sequential.Put", args, resp)
+			case utils.Get:
+				err = conn.Call("sequential.Get", args, resp)
+			case utils.Delete:
+				err = conn.Call("sequential.Delete", args, resp)
 			}
-		} else {
-			// Se l'asserzione fallisce, stampa un messaggio di errore
-			fmt.Printf("[CLIENT %d] Error: unable to assert type to *utils.Response\n", index)
-		}
 
-		fmt.Printf("[CLIENT %d] Done\n", index)
+			if err != nil {
+				fmt.Printf("[CLIENT %d] Error in call to %s: %v\n", index, opType, err)
+				return
+			}
+
+			if resp.IsPrintable {
+				fmt.Printf("[CLIENT %d] Answer from server: GET Value = %s\n", index, resp.Value)
+			}
+
+		}(op.OperationType, args, resp)
+		time.Sleep(500 * time.Millisecond)
 	}
+
+	wg.Wait() // Aspetta che tutte le goroutine abbiano finito
+	fmt.Printf("[CLIENT %d] Done\n", index)
 
 }

@@ -5,6 +5,7 @@ import (
 	"net/rpc"
 	"os"
 	"strconv"
+	"sync"
 )
 
 var replicas = os.Getenv("REPLICAS") //Assunzione: per tre repliche, questo valore sarà "3"
@@ -40,6 +41,9 @@ func GetServerName(index int) string {
 func SendAllAcks(msg Message) {
 	fmt.Println("Sending all acks")
 
+	var wg sync.WaitGroup
+	wg.Add(NumberOfReplicas)
+
 	for i := 0; i < NumberOfReplicas; i++ {
 
 		port := GetServerPort(i)
@@ -54,17 +58,24 @@ func SendAllAcks(msg Message) {
 		}
 		defer conn.Close()
 
-		err = conn.Call("sequential.ReceiveAck", msg, NewResponse())
-		if err != nil {
-			fmt.Println("Failed to send ack to server", i, "with error: ", err)
-		}
-		fmt.Printf("\033[32;1mSent ACK to server %d at address %s [UUID %s]\033[0m\n", i, addr, msg.UUID)
+		go func() {
+			err = conn.Call("sequential.ReceiveAck", msg, NewResponse())
+			if err != nil {
+				fmt.Println("Failed to send ack to server", i, "with error: ", err)
+			}
+			wg.Done()
+			fmt.Printf("\033[32;1mSent ACK to server %d at address %s [UUID %s]\033[0m\n", i, addr, msg.UUID)
+		}()
 
 	}
+	wg.Wait()
 }
 
 func SendToAllServer(msg Message) error {
 	fmt.Println("Sending to all server")
+
+	var wg sync.WaitGroup
+	wg.Add(NumberOfReplicas)
 
 	for i := 0; i < NumberOfReplicas; i++ {
 
@@ -80,10 +91,17 @@ func SendToAllServer(msg Message) error {
 		}
 		defer conn.Close()
 
-		conn.Go("sequential.Update", msg, NewResponse(), nil) //TODO mi sa che sto rimanendo bloccato qui
+		go func() {
+			err := conn.Call("sequential.Update", msg, NewResponse())
+			if err != nil {
+				fmt.Printf("\033[31mFailed to send msg to server %d with error: %s\033[0m\n", i, err)
+			}
+			wg.Done()
+		}()
 
 		fmt.Printf("\033[93mCalled Update on address %s\033[0m\n", addr)
 
 	}
+	wg.Wait()
 	return nil
 }

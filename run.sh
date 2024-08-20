@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-export REPLICAS=2
+export REPLICAS=3
 export LOCAL=1
 export DOCKER=0
 export CONSIST_TYPE=Sequential

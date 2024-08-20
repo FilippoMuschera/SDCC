@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var SLEEP_TIME = 10 * time.Millisecond
+var SLEEP_TIME = 0 * time.Millisecond
 
 type LogicalClock struct {
 	clockValue int
@@ -86,7 +86,12 @@ func (kvs *KVSSequential) Update(msg utils.Message, resp *utils.Response) error 
 
 	kvs.UpdateLogicalClockAfterReception(&msg)
 
-	fmt.Println("Clock updated after reception, new value = ", kvs.logicalClock.clockValue)
+	if msg.Args.Key == utils.EndKey && msg.Args.Value == utils.EndValue {
+		//Se è un messaggio di End l'importante è che venga inserito in coda, poi non va
+		//realmente processato.
+
+		return nil
+	}
 
 	utils.SendAllAcks(msg)
 
@@ -161,7 +166,7 @@ func (kvs *KVSSequential) WaitUntilExecutable(msg *utils.Message) {
 				cond3 <- true
 				return
 			}
-			time.Sleep(5 * time.Second)
+			time.Sleep(SLEEP_TIME)
 		}
 	}()
 
@@ -172,7 +177,7 @@ func (kvs *KVSSequential) WaitUntilExecutable(msg *utils.Message) {
 	<-cond3
 	fmt.Printf("\033[32mControllo sulla posizione in coda superato\033[0m\n")
 
-	//Una volta verificatesi tutte e 4 le condizioni, il controllo puà tornare alla funzione chiamante e il messaggio
+	//Una volta verificatesi tutte le condizioni, il controllo può tornare alla funzione chiamante e il messaggio
 	//può essere passato, di fatto, al livello applicativo.
 
 }
@@ -194,7 +199,7 @@ func (kvs *KVSSequential) checkIfFirstInQueue(msg *utils.Message) bool {
 	fmt.Print("\033[33mCurrent message queue composition:\033[0m\n") // Giallo scuro per intestazione
 
 	for _, m := range kvs.messageQueue.Queue {
-		fmt.Printf("UUID: %s, OpType: %s, Acks: %d, originatingServer: %d\n", m.UUID, m.OpType, m.Acks, m.ServerIndex)
+		fmt.Printf("UUID: %s, OpType: %s, Acks: %d, originatingServer: %d, CLOCK: %d\n", m.UUID, m.OpType, m.Acks, m.ServerIndex, m.ClockValue)
 	}
 
 	// Stampa l'UUID del messaggio che stiamo controllando
@@ -317,11 +322,11 @@ func (kvs *KVSSequential) CallRealOperation(msg *utils.Message, resp *utils.Resp
 
 	case utils.Delete:
 		// Implementazione dell'operazione Delete
-		_, ok := kvs.store[msg.Args.Key]
+		/*_, ok := kvs.store[msg.Args.Key]
 		if !ok {
 			return fmt.Errorf("error during Delete operation: key '%s' not found", msg.Args.Key)
-		}
-		delete(kvs.store, msg.Args.Key)
+		}*/
+		delete(kvs.store, msg.Args.Key) //Se la chiave non c'è ho una no-op ed è il comportamento desiderato
 		fmt.Printf("Delete operation completed. Key: %s\n", msg.Args.Key)
 
 	default:
@@ -518,6 +523,7 @@ func (kvs *KVSSequential) checkForEndKeys() {
 	// Stampa la linea di chiusura della tabella
 	fmt.Println(strings.Repeat("-", maxKeyLen+maxValLen+7))
 
-	//TODO eventualmente svuotare la coda dagli END MESSAGE
+	// Svuota la coda dagli END MESSAGE
+	kvs.messageQueue.Queue = kvs.messageQueue.Queue[:0]
 
 }
