@@ -1,0 +1,32 @@
+# Fase di build
+FROM golang:latest AS builder
+
+WORKDIR /app
+
+# Copiare i file di modulo e scaricare le dipendenze
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copiare il resto del codice sorgente
+COPY . .
+
+# Compilare il server
+RUN go build -o server ./main/server
+
+# Fase di runtime
+FROM fedora:latest
+
+WORKDIR /app
+
+# Copiare il binario compilato dalla fase di build
+COPY --from=builder /app/server /app/
+
+# Impostare le variabili d'ambiente
+ENV REPLICAS=3 \
+    LOCAL=1 \
+    DOCKER=0 \
+    CONSIST_TYPE=Sequential \
+    DEBUG=0
+
+# Comando predefinito
+CMD ["./server"]

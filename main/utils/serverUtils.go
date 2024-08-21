@@ -31,6 +31,8 @@ func GetServerName(index int) string {
 
 	if os.Getenv("LOCAL") == "1" {
 		return "localhost:"
+	} else if os.Getenv("DOCKER") == "1" {
+		return "server" + strconv.Itoa(index) + ":"
 	}
 
 	//Qui poi ci va anche il caso per Docker

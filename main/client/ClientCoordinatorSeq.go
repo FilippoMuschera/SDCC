@@ -29,8 +29,12 @@ func main() {
 		fmt.Print("Enter your choice: ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Error reading input, please try again.")
-			continue
+			if os.Getenv("DOCKER") == "1" {
+				input = os.Args[1]
+			} else {
+				fmt.Println("Error reading input, please try again.")
+				continue
+			}
 		}
 
 		// Rimuovi spazi bianchi e newline
@@ -97,6 +101,11 @@ func basicTestSeq() {
 	wg.Wait()
 
 	fmt.Println("All operations have completed.")
+
+	if os.Getenv("DOCKER") == "1" {
+		time.Sleep(1 * time.Hour) //Rimane attivo per permettere di accedere al log
+
+	}
 }
 
 func addEndOps(replicas int) []Operation {

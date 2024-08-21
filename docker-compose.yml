@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  server0:
+    build:
+      context: .
+      dockerfile: DockerfileServer
+    command: ["./server", "0"]
+    env_file:
+      - .env
+    networks:
+      - app-network
+
+  server1:
+    build:
+      context: .
+      dockerfile: DockerfileServer
+    command: ["./server", "1"]
+    env_file:
+      - .env
+    networks:
+      - app-network
+
+  server2:
+    build:
+      context: .
+      dockerfile: DockerfileServer
+    command: ["./server", "2"]
+    env_file:
+      - .env
+    networks:
+      - app-network
+
+  client:
+    build:
+      context: .
+      dockerfile: DockerfileClient
+    env_file:
+      - .env
+    depends_on:
+      - server0
+      - server1
+      - server2
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
