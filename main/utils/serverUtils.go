@@ -48,7 +48,7 @@ func SendAllAcks(msg MessageNA) {
 	for i := 0; i < NumberOfReplicas; i++ {
 
 		port := GetServerPort(i)
-		//TODO delay
+		NetworkDelay()
 		serverName := GetServerName(i)
 		addr := serverName + port
 
@@ -91,7 +91,7 @@ func SendToAllServer(msg MessageNA) error {
 	for i := 0; i < NumberOfReplicas; i++ {
 
 		port := GetServerPort(i)
-		//TODO delay
+		NetworkDelay()
 		serverName := GetServerName(i)
 		addr := serverName + port
 
