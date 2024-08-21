@@ -141,8 +141,6 @@ func executeSequentialOperation(index int, operations []Operation) {
 		args := utils.NewArg(op.Key, op.Value, requestNumber, index)
 		resp := utils.NewResponse()
 
-		fmt.Printf("\033[36m[CLIENT %d] Requesting to server %s. Operation %s with key %s [RN: %d]\033[0m\n", index, addr, op.OperationType, args.Key, requestNumber)
-
 		// Esegui la chiamata in una goroutine
 		wg.Add(1) // Incrementa il contatore per ogni chiamata
 		go func(opType string, args *utils.Args, resp *utils.Response) {
