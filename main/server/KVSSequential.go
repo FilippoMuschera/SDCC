@@ -233,9 +233,6 @@ func (kvs *KVSSequential) checkIfNextFromServer(msg *utils.Message) bool {
 func (kvs *KVSSequential) checkForAllAcks(msg *utils.Message) bool {
 
 	currentAcks := msg.Acks.Load()
-	if currentAcks != int32(utils.NumberOfReplicas) {
-		fmt.Printf("\033[38;5;179mI see %d acks but I would need %d instead for msg %s\033[0m\n", currentAcks, utils.NumberOfReplicas, msg.UUID)
-	}
 
 	return int(currentAcks) == utils.NumberOfReplicas
 }
