@@ -24,14 +24,26 @@ var (
 /*
 https://www.wolframalpha.com/input?i=lognormal%284.488%2C+0.5%29
 Dati della distribuzione presi in modo che la media sia circa 100 ms, e la varianza faccia oscillare i valori ottenuti
-tra la decina di ms (circa) e un valore massimo nell'ordine dei 600/700 ms
+tra la decina di ms (circa) e un valore massimo troncato a 500 ms
 */
 
-func NetworkDelay() {
+func NetworkDelay2() {
 	// Generate a log-normal distributed random number.
 	// rand.NormFloat64() generates a normally distributed float64 value with mean 0 and stddev 1.
 	delay := rand.NormFloat64()*SIGMA + MU
 	delayDuration := time.Duration(math.Exp(delay)) * time.Millisecond
+	if delayDuration > 500*time.Millisecond {
+		delayDuration = 500 * time.Millisecond
+	}
 
 	time.Sleep(delayDuration)
+}
+
+func NetworkDelay() {
+
+	// Genera un tempo randomico tra 10 e 500 millisecondi
+	sleepTime := time.Duration(rand.Intn(490)+10) * time.Millisecond
+
+	// Effettua la sleep
+	time.Sleep(sleepTime)
 }
