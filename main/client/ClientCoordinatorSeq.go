@@ -18,6 +18,37 @@ type Operation struct {
 	Value         string
 }
 
+// Barrier Step 1: Define a Barrier struct.
+type Barrier struct {
+	total int
+	count int
+	mutex sync.Mutex
+	cond  *sync.Cond
+}
+
+// NewBarrier Step 2: Implement the Barrier struct
+func NewBarrier(count int) *Barrier {
+	b := &Barrier{
+		total: count,
+		count: 0,
+	}
+	b.cond = sync.NewCond(&b.mutex)
+	return b
+}
+
+// Wait Step 3: Define a Wait method that goroutines can call when they reach the barrier.
+func (b *Barrier) Wait() {
+	b.mutex.Lock()
+	b.count++
+	if b.count >= b.total {
+		b.count = 0
+		time.Sleep(200 * time.Millisecond)
+		b.cond.Broadcast()
+	} else {
+		b.cond.Wait()
+	}
+	b.mutex.Unlock()
+}
 func main() {
 	reader := bufio.NewReader(os.Stdin) // Crea un lettore per leggere l'input dell'utente
 	for {
@@ -52,62 +83,6 @@ func main() {
 	}
 }
 
-func basicTestSeq() {
-	fmt.Println("In questo test sequenziale, le seguenti operazioni vengono inviate in parallelo ai server:\n")
-
-	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Operazione|     1     |     2     |     3     |     4     |")
-	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 1  | put x:1   | get x     | del x     | get x     |")
-	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 2  | put x:2   | get x     | del x     | get x     |")
-	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 3  | put x:3   | get x     | del x     | get x     |")
-	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-
-	operations := []Operation{
-		{0, utils.Put, "x", "1"},
-		{1, utils.Put, "x", "2"},
-		{2, utils.Put, "x", "3"},
-
-		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
-
-		{ServerIndex: 0, OperationType: utils.Delete, Key: "x"},
-		{ServerIndex: 1, OperationType: utils.Delete, Key: "x"},
-		{ServerIndex: 2, OperationType: utils.Delete, Key: "x"},
-
-		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
-	}
-	operations = append(operations, addEndOps(utils.NumberOfReplicas)...)
-	// Creazione di un WaitGroup
-	var wg sync.WaitGroup
-
-	// Aggiungi il numero di goroutine che aspettiamo
-	wg.Add(utils.NumberOfReplicas)
-
-	// Lancio delle goroutine
-	for i := 0; i < utils.NumberOfReplicas; i++ {
-		go func(index int) {
-			defer wg.Done()                               // Indica che questa goroutine è completata quando esce dalla funzione
-			executeSequentialOperation(index, operations) // Esegui l'operazione
-		}(i)
-	}
-
-	// Attendi che tutte le goroutine completino l'esecuzione
-	wg.Wait()
-
-	fmt.Println("All operations have completed.")
-
-	if os.Getenv("DOCKER") == "1" {
-		time.Sleep(1 * time.Hour) //Rimane attivo per permettere di accedere al log
-
-	}
-}
-
 func addEndOps(replicas int) []Operation {
 	ops := make([]Operation, replicas)
 	for i := 0; i < replicas; i++ {
@@ -117,7 +92,7 @@ func addEndOps(replicas int) []Operation {
 	return ops
 }
 
-func executeSequentialOperation(index int, operations []Operation) {
+func executeOperations(index int, operations []Operation, barrier *Barrier) {
 	serverName := utils.GetServerName(index)
 	serverPort := utils.GetServerPort(index)
 
@@ -146,9 +121,12 @@ func executeSequentialOperation(index int, operations []Operation) {
 		if op.ServerIndex != index {
 			continue
 		}
+
 		requestNumber++
 		args := utils.NewArg(op.Key, op.Value, requestNumber, index)
 		resp := utils.NewResponse()
+
+		//fmt.Printf("[CLIENT %d] Requesting op %s with req number = %d\n", index, op.OperationType, requestNumber)
 
 		// Esegui la chiamata in una goroutine
 		wg.Add(1) // Incrementa il contatore per ogni chiamata
@@ -175,7 +153,9 @@ func executeSequentialOperation(index int, operations []Operation) {
 			}
 
 		}(op.OperationType, args, resp)
-		time.Sleep(500 * time.Millisecond)
+
+		barrier.Wait()
+
 	}
 
 	wg.Wait() // Aspetta che tutte le goroutine abbiano finito

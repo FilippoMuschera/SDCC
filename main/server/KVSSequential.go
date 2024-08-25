@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -19,13 +20,15 @@ type LogicalClock struct {
 
 // KVSSequential is a concrete implementation of the KVS interface
 type KVSSequential struct {
-	index        int                 //indice della replica corrente
-	store        map[string]string   //KVS effettivo
-	mapMutex     sync.Mutex          //mutex per accedere alla Map
-	clientList   ClientList          //Lista dei client per il singolo server
-	logicalClock *LogicalClock       // clock logico del server
-	messageQueue *utils.MessageQueue //coda di messaggi del server
-	serverList   ServerList          //struct con contatori di ricezioni/invii per ogni server
+	index           int                 //indice della replica corrente
+	store           map[string]string   //KVS effettivo
+	mapMutex        sync.Mutex          //mutex per accedere alla Map
+	clientList      ClientList          //Lista dei client per il singolo server
+	logicalClock    *LogicalClock       // clock logico del server
+	messageQueue    *utils.MessageQueue //coda di messaggi del server
+	serverList      ServerList          //struct con contatori di ricezioni/invii per ogni server
+	internalCounter atomic.Int32        //counter che tiene conto anche delle operazioni locali
+
 }
 
 type ServerList struct {
@@ -91,6 +94,9 @@ func (kvs *KVSSequential) Update(m utils.MessageNA, resp *utils.Response) error 
 
 	//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
 	msg = kvs.messageQueue.InsertAndSort(msg)
+	kvs.UpdateInternalCounter(msg)
+
+	kvs.serverList.ReceiveMsgCounter[msg.ServerIndex] += 1 //conteggio il messaggio come ricevuto ora
 
 	kvs.UpdateLogicalClockAfterReception(msg)
 
@@ -103,7 +109,7 @@ func (kvs *KVSSequential) Update(m utils.MessageNA, resp *utils.Response) error 
 
 	utils.SendAllAcks(m) //Uso la versione del messaggio senza lock per inviare l'ack
 
-	fmt.Printf("MSG %s ready to wait for exec", msg.UUID)
+	fmt.Printf("MSG %s ready to wait for exec\n", msg.UUID)
 	kvs.WaitUntilExecutable(msg)
 
 	err := kvs.CallRealOperation(msg, resp)
@@ -216,9 +222,9 @@ func (kvs *KVSSequential) checkIfNextFromServer(msg *utils.Message) bool {
 	isNext := kvs.serverList.ReceiveMsgCounter[msg.ServerIndex]+1 == msg.ServerMsgCounter //controllo se il messaggio che mi è arrivato
 	//è effettivamente il prossimo
 
-	if isNext {
+	/*if isNext {
 		kvs.serverList.ReceiveMsgCounter[msg.ServerIndex] += 1 //se lo è allora lo "ricevo", altrimenti resterà in attesa nella Update
-	}
+	}*/
 
 	return isNext
 
@@ -291,6 +297,7 @@ func (kvs *KVSSequential) ReceiveAck(msg utils.MessageNA, resp *utils.Response) 
 		newMsg.Acks.Store(1)
 
 		_ = kvs.messageQueue.InsertAndSort(newMsg, true)
+		kvs.UpdateInternalCounter(newMsg)
 		kvs.messageQueue.QueueMutex.Unlock()
 
 	}
@@ -390,7 +397,17 @@ func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Respo
 		kvs.logicalClock.clockMutex.Unlock()
 
 		//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
+		for {
+			value := kvs.internalCounter.Load()
+			if int(value) == msg.Args.RequestNumber {
+				break
+
+			}
+			// Utilizzo di `time.Sleep` per ridurre l'uso della CPU
+			time.Sleep(SLEEP_TIME)
+		}
 		msg = kvs.messageQueue.InsertAndSort(msg)
+		kvs.UpdateInternalCounter(msg)
 
 		kvs.WaitUntilExecutable(msg)
 
@@ -525,5 +542,13 @@ func (kvs *KVSSequential) checkForEndKeys() {
 
 	// Svuota la coda dagli END MESSAGE
 	kvs.messageQueue.Queue = kvs.messageQueue.Queue[:0]
+
+}
+
+func (kvs *KVSSequential) UpdateInternalCounter(msg *utils.Message) {
+
+	if msg.ServerIndex == kvs.index {
+		kvs.internalCounter.Add(1)
+	}
 
 }
