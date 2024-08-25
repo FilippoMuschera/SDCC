@@ -42,7 +42,7 @@ func (b *Barrier) Wait() {
 	b.count++
 	if b.count >= b.total {
 		b.count = 0
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 		b.cond.Broadcast()
 	} else {
 		b.cond.Wait()
