@@ -42,7 +42,7 @@ func (b *Barrier) Wait() {
 	b.count++
 	if b.count >= b.total {
 		b.count = 0
-		time.Sleep(400 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		b.cond.Broadcast()
 	} else {
 		b.cond.Wait()
@@ -55,6 +55,7 @@ func main() {
 		// Mostra il prompt all'utente
 		fmt.Println("Select the type of test you want to run:")
 		fmt.Println("[1] Test sequenziale base")
+		fmt.Println("[2] Test sequenziale avanzato")
 
 		// Legge l'input dell'utente
 		fmt.Print("Enter your choice: ")
@@ -76,6 +77,10 @@ func main() {
 		case "1":
 			fmt.Println("Running 'Test sequenziale base'...")
 			basicTestSeq() // Chiama la funzione per eseguire il test sequenziale base
+			return
+		case "2":
+			fmt.Println("Running 'Test sequenziale avanzato'...")
+			advancedTestSeq()
 			return
 		default:
 			fmt.Println("Invalid option, please try again.")
@@ -113,6 +118,7 @@ func executeOperations(index int, operations []Operation, barrier *Barrier) {
 
 	// Crea un WaitGroup per sincronizzare tutte le goroutine
 	var wg sync.WaitGroup
+	wg.Add(len(operations) / utils.NumberOfReplicas) // Incrementa il contatore per ogni chiamata
 
 	// Contatore per la numerazione delle richieste
 	var requestNumber int
@@ -129,13 +135,15 @@ func executeOperations(index int, operations []Operation, barrier *Barrier) {
 		//fmt.Printf("[CLIENT %d] Requesting op %s with req number = %d\n", index, op.OperationType, requestNumber)
 
 		// Esegui la chiamata in una goroutine
-		wg.Add(1) // Incrementa il contatore per ogni chiamata
 		go func(opType string, args *utils.Args, resp *utils.Response) {
 			defer wg.Done() // Decrementa il contatore al termine della chiamata
 			var err error
 
 			switch opType {
 			case utils.Put:
+				if op.Key == utils.EndKey && op.Value == utils.EndValue {
+					time.Sleep(5 * time.Second) //Sono op. speciali che servono solo a sbloccare l'ultima exec. Devono necessariamente essere le ultime
+				}
 				err = conn.Call("sequential.Put", args, resp)
 			case utils.Get:
 				err = conn.Call("sequential.Get", args, resp)
@@ -149,7 +157,7 @@ func executeOperations(index int, operations []Operation, barrier *Barrier) {
 			}
 
 			if resp.IsPrintable {
-				fmt.Printf("[CLIENT %d] Answer from server: GET Value = %s\n", index, resp.Value)
+				fmt.Printf("[CLIENT %d] Answer from server: GET of Key '%s' Value = %s\n", index, resp.Key, resp.Value)
 			}
 
 		}(op.OperationType, args, resp)

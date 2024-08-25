@@ -14,8 +14,8 @@ func init() {
 
 func NetworkDelay() {
 
-	// Genera un tempo randomico tra 1 e 300 millisecondi
-	sleepTime := time.Duration(r.Intn(300)+1) * time.Millisecond
+	// Genera un tempo randomico tra 10 e 500 millisecondi
+	sleepTime := time.Duration(r.Intn(490)+10) * time.Millisecond
 
 	// Effettua la sleep
 	time.Sleep(sleepTime)

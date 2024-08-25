@@ -30,4 +30,4 @@ ENV REPLICAS=3 \
 
 # Comando predefinito
 # Esegui il client e poi mantieni il container aperto
-CMD ["./client", "1"]
+CMD ["./client", "2"]

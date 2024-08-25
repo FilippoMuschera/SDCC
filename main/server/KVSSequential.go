@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var SLEEP_TIME = 0 * time.Millisecond
+var SLEEP_TIME = 100 * time.Millisecond
 
 type LogicalClock struct {
 	clockValue int
@@ -62,6 +62,7 @@ func NewKVSSequential(index int) *KVSSequential {
 		},
 	}
 	go kvs.PeriodicCheckForEndKeys()
+	kvs.internalCounter.Store(0) //aspetto il primo messaggio
 	return kvs
 }
 
@@ -313,6 +314,7 @@ func (kvs *KVSSequential) CallRealOperation(msg *utils.Message, resp *utils.Resp
 		if !ok {
 			return fmt.Errorf("error during Get operation: key '%s' not found", msg.Args.Key)
 		}
+		resp.Key = msg.Args.Key
 		resp.Value = value
 		resp.IsPrintable = true
 		fmt.Printf("Get operation completed. Key: %s, Value: %s\n", msg.Args.Key, value)
@@ -396,7 +398,7 @@ func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Respo
 		//Ora posso effettivamente ricevere il messaggio, inserendolo nella coda
 		for {
 			value := kvs.internalCounter.Load()
-			if int(value) == msg.Args.RequestNumber {
+			if int(value) >= msg.Args.RequestNumber {
 				break
 
 			}
