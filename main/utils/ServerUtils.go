@@ -110,7 +110,51 @@ func SendToAllServer(msg MessageNA) error {
 			}
 			err2 := conn.Close()
 			if err != nil {
-				fmt.Println("WARNING:::: Error closing ack connection: ", err2)
+				fmt.Println("WARNING:::: Error closing send to server connection: ", err2)
+			}
+			wg.Done()
+		}()
+
+		fmt.Printf("\033[93mCalled Update on address %s\033[0m\n", addr)
+
+	}
+	wg.Wait()
+	return nil
+}
+
+func SendGETToAllServer(msg MessageNA, respChannel chan string, answeringServer int) error {
+	fmt.Println("Sending to all server")
+
+	var wg sync.WaitGroup
+	wg.Add(NumberOfReplicas)
+
+	for i := 0; i < NumberOfReplicas; i++ {
+
+		port := GetServerPort(i)
+		if i != answeringServer {
+			NetworkDelay() //Per un messaggio a me stesso non sperimento ritardo di rete
+		}
+		serverName := GetServerName(i)
+		addr := serverName + port
+
+		conn, err := rpc.Dial("tcp", addr)
+		if err != nil {
+			fmt.Println("Failed to connect to server", i)
+			return err
+		}
+
+		go func() {
+			resp := NewResponse()
+			err := conn.Call("sequential.Update", msg, resp)
+			if err != nil {
+				fmt.Printf("\033[31mFailed to send msg to server %d with error: %s\033[0m\n", i, err)
+			}
+			err2 := conn.Close()
+			if err != nil {
+				fmt.Println("WARNING:::: Error closing send server v2 connection: ", err2)
+			}
+			if i == answeringServer {
+				respChannel <- resp.Value
 			}
 			wg.Done()
 		}()

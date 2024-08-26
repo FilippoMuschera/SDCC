@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	Get      = "Get"
-	Put      = "Put"
-	Delete   = "Delete"
-	EndKey   = "EndKey"
-	EndValue = "EndValue"
+	Get         = "Get"
+	Put         = "Put"
+	Delete      = "Delete"
+	EndKey      = "EndKey"
+	EndValue    = "EndValue"
+	KeyNotFound = "KeyNotFound"
 )
 
 type Message struct {
@@ -125,7 +126,8 @@ func (mq *MessageQueue) Pop(m *Message) error {
 
 	// Controlla che il primo messaggio nella coda sia quello specificato
 	if mq.Queue[0].UUID != m.UUID {
-		fmt.Println("\033[31mERRORE NELLA POP: IL MSG NON È IL PRIMO IN CODA\033[0m")
+		fmt.Println("\033[31mERRORE NELLA POP: IL MSG NON È IL PRIMO IN CODA\n"+
+			"I am ", m.UUID, " first is ", mq.Queue[0].UUID, "\n\033[0m")
 		return fmt.Errorf("the provided message is not the first in the queue")
 	}
 
