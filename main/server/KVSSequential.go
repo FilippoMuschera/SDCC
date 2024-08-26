@@ -104,7 +104,7 @@ func (kvs *KVSSequential) Update(m utils.MessageNA, resp *utils.Response) error 
 	if msg.Args.Key == utils.EndKey && msg.Args.Value == utils.EndValue {
 		//Se è un messaggio di End l'importante è che venga inserito in coda, poi non va
 		//realmente processato.
-
+		fmt.Println("\033[1;35mENDOPS FROM SERVER ", msg.ServerIndex, " CORRECTLY PROCESSED\033[0m")
 		return nil
 	}
 

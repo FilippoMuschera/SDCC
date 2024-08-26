@@ -14,31 +14,31 @@ func basicTestSeq() {
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
 	fmt.Println(" | Operazione|     1     |     2     |     3     |     4     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 0  | put x:1   | get x     | del x     | get x     |")
+	fmt.Println(" | Processo 0| put x:1   | get x     | del x     | get x     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 1  | put x:2   | get x     | del x     | get x     |")
+	fmt.Println(" | Processo 1| put x:2   | get x     | del x     | get x     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 2  | put x:3   | get x     | del x     | get x     |")
+	fmt.Println(" | Processo 2| put x:3   | get x     | del x     | get x     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
 
 	operations := []Operation{
-		// Operazioni per Server 1
-		{ServerIndex: 0, OperationType: utils.Put, Key: "x", Value: "1"},
-		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 0, OperationType: utils.Delete, Key: "x"},
-		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
+		// Operazioni per Processo 1
+		{ClientIndex: 0, OperationType: utils.Put, Key: "x", Value: "1"},
+		{ClientIndex: 0, OperationType: utils.Get, Key: "x"},
+		{ClientIndex: 0, OperationType: utils.Delete, Key: "x"},
+		{ClientIndex: 0, OperationType: utils.Get, Key: "x"},
 
-		// Operazioni per Server 2
-		{ServerIndex: 1, OperationType: utils.Put, Key: "x", Value: "2"},
-		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 1, OperationType: utils.Delete, Key: "x"},
-		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
+		// Operazioni per Processo 2
+		{ClientIndex: 1, OperationType: utils.Put, Key: "x", Value: "2"},
+		{ClientIndex: 1, OperationType: utils.Get, Key: "x"},
+		{ClientIndex: 1, OperationType: utils.Delete, Key: "x"},
+		{ClientIndex: 1, OperationType: utils.Get, Key: "x"},
 
-		// Operazioni per Server 3
-		{ServerIndex: 2, OperationType: utils.Put, Key: "x", Value: "3"},
-		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 2, OperationType: utils.Delete, Key: "x"},
-		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
+		// Operazioni per Processo 3
+		{ClientIndex: 2, OperationType: utils.Put, Key: "x", Value: "3"},
+		{ClientIndex: 2, OperationType: utils.Get, Key: "x"},
+		{ClientIndex: 2, OperationType: utils.Delete, Key: "x"},
+		{ClientIndex: 2, OperationType: utils.Get, Key: "x"},
 	}
 	operations = append(operations, addEndOps(utils.NumberOfReplicas)...)
 	// Creazione di un WaitGroup
@@ -72,31 +72,31 @@ func advancedTestSeq() {
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
 	fmt.Println(" | Operazione|     1     |     2     |     3     |     4     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 0  | put x:1   | get y     | get x     | get z     |")
+	fmt.Println(" | Processo 0| put x:1   | get y     | get x     | get z     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 1  | put y:2   | get x     | get z     | put z:5   |")
+	fmt.Println(" | Processo 1| put y:2   | get x     | get z     | put z:5   |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 2  | get x     | put x:3   | put z:4   | del x     |")
+	fmt.Println(" | Processo 2| get x     | put x:3   | put z:4   | del x     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
 
 	operations := []Operation{
-		// Operazioni per Server 0
-		{ServerIndex: 0, OperationType: utils.Put, Key: "x", Value: "1"},
-		{ServerIndex: 0, OperationType: utils.Get, Key: "y"},
-		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 0, OperationType: utils.Get, Key: "z"},
+		// Operazioni per Processo 0
+		{ClientIndex: 0, OperationType: utils.Put, Key: "x", Value: "1"},
+		{ClientIndex: 0, OperationType: utils.Get, Key: "y"},
+		{ClientIndex: 0, OperationType: utils.Get, Key: "x"},
+		{ClientIndex: 0, OperationType: utils.Get, Key: "z"},
 
-		// Operazioni per Server 1
-		{ServerIndex: 1, OperationType: utils.Put, Key: "y", Value: "2"},
-		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 1, OperationType: utils.Get, Key: "z"},
-		{ServerIndex: 1, OperationType: utils.Put, Key: "z", Value: "5"},
+		// Operazioni per Processo 1
+		{ClientIndex: 1, OperationType: utils.Put, Key: "y", Value: "2"},
+		{ClientIndex: 1, OperationType: utils.Get, Key: "x"},
+		{ClientIndex: 1, OperationType: utils.Get, Key: "z"},
+		{ClientIndex: 1, OperationType: utils.Put, Key: "z", Value: "5"},
 
-		// Operazioni per Server 2
-		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
-		{ServerIndex: 2, OperationType: utils.Put, Key: "x", Value: "3"},
-		{ServerIndex: 2, OperationType: utils.Put, Key: "z", Value: "4"},
-		{ServerIndex: 2, OperationType: utils.Delete, Key: "x"},
+		// Operazioni per Processo 2
+		{ClientIndex: 2, OperationType: utils.Get, Key: "x"},
+		{ClientIndex: 2, OperationType: utils.Put, Key: "x", Value: "3"},
+		{ClientIndex: 2, OperationType: utils.Put, Key: "z", Value: "4"},
+		{ClientIndex: 2, OperationType: utils.Delete, Key: "x"},
 	}
 
 	operations = append(operations, addEndOps(utils.NumberOfReplicas)...)

@@ -12,7 +12,7 @@ import (
 )
 
 type Operation struct {
-	ServerIndex   int
+	ClientIndex   int
 	OperationType string
 	Key           string
 	Value         string
@@ -60,7 +60,7 @@ func main() {
 func addEndOps(replicas int) []Operation {
 	ops := make([]Operation, replicas)
 	for i := 0; i < replicas; i++ {
-		ops[i] = Operation{ServerIndex: i, OperationType: utils.Put, Key: utils.EndKey, Value: utils.EndValue}
+		ops[i] = Operation{ClientIndex: i, OperationType: utils.Put, Key: utils.EndKey, Value: utils.EndValue}
 	}
 
 	return ops
@@ -93,7 +93,7 @@ func executeOperations(index int, operations []Operation) {
 	var requestNumber int
 
 	for _, op := range operations {
-		if op.ServerIndex != index {
+		if op.ClientIndex != index {
 			continue
 		}
 
