@@ -46,13 +46,12 @@ func basicTestSeq() {
 
 	// Aggiungi il numero di goroutine che aspettiamo
 	wg.Add(utils.NumberOfReplicas)
-	barrier := NewBarrier(utils.NumberOfReplicas)
 
 	// Lancio delle goroutine
 	for i := 0; i < utils.NumberOfReplicas; i++ {
 		go func(index int) {
-			defer wg.Done()                               // Indica che questa goroutine è completata quando esce dalla funzione
-			executeOperations(index, operations, barrier) // Esegui l'operazione
+			defer wg.Done()                      // Indica che questa goroutine è completata quando esce dalla funzione
+			executeOperations(index, operations) // Esegui l'operazione
 		}(i)
 	}
 
@@ -75,29 +74,29 @@ func advancedTestSeq() {
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
 	fmt.Println(" | Server 0  | put x:1   | get y     | get x     | get z     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 1  | put y:2   | get x     | get z     | del x     |")
+	fmt.Println(" | Server 1  | put y:2   | get x     | get z     | put z:5   |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
-	fmt.Println(" | Server 2  | get x     | put x:3   | put z:4   | del y     |")
+	fmt.Println(" | Server 2  | get x     | put x:3   | put z:4   | del x     |")
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
 
 	operations := []Operation{
-		// Operazioni per Server 1
+		// Operazioni per Server 0
 		{ServerIndex: 0, OperationType: utils.Put, Key: "x", Value: "1"},
 		{ServerIndex: 0, OperationType: utils.Get, Key: "y"},
 		{ServerIndex: 0, OperationType: utils.Get, Key: "x"},
 		{ServerIndex: 0, OperationType: utils.Get, Key: "z"},
 
-		// Operazioni per Server 2
+		// Operazioni per Server 1
 		{ServerIndex: 1, OperationType: utils.Put, Key: "y", Value: "2"},
 		{ServerIndex: 1, OperationType: utils.Get, Key: "x"},
 		{ServerIndex: 1, OperationType: utils.Get, Key: "z"},
-		{ServerIndex: 1, OperationType: utils.Delete, Key: "x"},
+		{ServerIndex: 1, OperationType: utils.Put, Key: "z", Value: "5"},
 
-		// Operazioni per Server 3
+		// Operazioni per Server 2
 		{ServerIndex: 2, OperationType: utils.Get, Key: "x"},
 		{ServerIndex: 2, OperationType: utils.Put, Key: "x", Value: "3"},
 		{ServerIndex: 2, OperationType: utils.Put, Key: "z", Value: "4"},
-		{ServerIndex: 2, OperationType: utils.Delete, Key: "y"},
+		{ServerIndex: 2, OperationType: utils.Delete, Key: "x"},
 	}
 
 	operations = append(operations, addEndOps(utils.NumberOfReplicas)...)
@@ -106,13 +105,12 @@ func advancedTestSeq() {
 
 	// Aggiungi il numero di goroutine che aspettiamo
 	wg.Add(utils.NumberOfReplicas)
-	barrier := NewBarrier(utils.NumberOfReplicas)
 
 	// Lancio delle goroutine
 	for i := 0; i < utils.NumberOfReplicas; i++ {
 		go func(index int) {
-			defer wg.Done()                               // Indica che questa goroutine è completata quando esce dalla funzione
-			executeOperations(index, operations, barrier) // Esegui l'operazione
+			defer wg.Done()                      // Indica che questa goroutine è completata quando esce dalla funzione
+			executeOperations(index, operations) // Esegui l'operazione
 		}(i)
 	}
 

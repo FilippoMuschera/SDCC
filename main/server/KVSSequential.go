@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var SLEEP_TIME = 100 * time.Millisecond
+var SLEEP_TIME = 250 * time.Millisecond
 
 type LogicalClock struct {
 	clockValue int
@@ -402,8 +402,7 @@ func (kvs *KVSSequential) ExecuteClientRequest(arg utils.Args, resp *utils.Respo
 				break
 
 			}
-			// Utilizzo di `time.Sleep` per ridurre l'uso della CPU
-			time.Sleep(SLEEP_TIME)
+
 		}
 		msg = kvs.messageQueue.InsertAndSort(msg)
 		kvs.UpdateInternalCounter(msg)

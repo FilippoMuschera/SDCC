@@ -18,37 +18,6 @@ type Operation struct {
 	Value         string
 }
 
-// Barrier Step 1: Define a Barrier struct.
-type Barrier struct {
-	total int
-	count int
-	mutex sync.Mutex
-	cond  *sync.Cond
-}
-
-// NewBarrier Step 2: Implement the Barrier struct
-func NewBarrier(count int) *Barrier {
-	b := &Barrier{
-		total: count,
-		count: 0,
-	}
-	b.cond = sync.NewCond(&b.mutex)
-	return b
-}
-
-// Wait Step 3: Define a Wait method that goroutines can call when they reach the barrier.
-func (b *Barrier) Wait() {
-	b.mutex.Lock()
-	b.count++
-	if b.count >= b.total {
-		b.count = 0
-		time.Sleep(100 * time.Millisecond)
-		b.cond.Broadcast()
-	} else {
-		b.cond.Wait()
-	}
-	b.mutex.Unlock()
-}
 func main() {
 	reader := bufio.NewReader(os.Stdin) // Crea un lettore per leggere l'input dell'utente
 	for {
@@ -62,7 +31,7 @@ func main() {
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			if os.Getenv("DOCKER") == "1" {
-				input = os.Args[1]
+				input = os.Getenv("DOCKER_OP")
 			} else {
 				fmt.Println("Error reading input, please try again.")
 				continue
@@ -97,7 +66,7 @@ func addEndOps(replicas int) []Operation {
 	return ops
 }
 
-func executeOperations(index int, operations []Operation, barrier *Barrier) {
+func executeOperations(index int, operations []Operation) {
 	serverName := utils.GetServerName(index)
 	serverPort := utils.GetServerPort(index)
 
@@ -161,8 +130,6 @@ func executeOperations(index int, operations []Operation, barrier *Barrier) {
 			}
 
 		}(op.OperationType, args, resp)
-
-		barrier.Wait()
 
 	}
 
