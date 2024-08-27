@@ -67,21 +67,33 @@ func addEndOps(replicas int) []Operation {
 }
 
 func executeOperations(index int, operations []Operation) {
-	serverName := utils.GetServerName(index)
-	serverPort := utils.GetServerPort(index)
+	var serverName string
+	var serverPort string
+	var chosenServer int
+
+	if os.Getenv("RANDOM_REPLICA") == "1" {
+		r := utils.GetRandomReplica()
+		serverName = utils.GetServerName(r)
+		serverPort = utils.GetServerPort(r)
+		chosenServer = r
+	} else {
+		chosenServer = index
+		serverName = utils.GetServerName(chosenServer)
+		serverPort = utils.GetServerPort(chosenServer)
+	}
 
 	addr := serverName + serverPort
 	fmt.Printf("[CLIENT %d] Connecting to server %s\n", index, addr)
 
 	conn, err := rpc.Dial("tcp", addr)
 	if err != nil {
-		fmt.Printf("[CLIENT %d] Failed to connect to server %d: %v\n", index, index, err)
+		fmt.Printf("[CLIENT %d] Failed to connect to server %d: %v\n", index, chosenServer, err)
 		os.Exit(1)
 	}
 	defer func(conn *rpc.Client) {
 		err := conn.Close()
 		if err != nil {
-			fmt.Printf("[CLIENT %d] Failed to close connection to server %d: %v\n", index, index, err)
+			fmt.Printf("[CLIENT %d] Failed to close connection to server %d: %v\n", index, chosenServer, err)
 		}
 	}(conn)
 
@@ -100,8 +112,6 @@ func executeOperations(index int, operations []Operation) {
 		requestNumber++
 		args := utils.NewArg(op.Key, op.Value, requestNumber, index)
 		resp := utils.NewResponse()
-
-		//fmt.Printf("[CLIENT %d] Requesting op %s with req number = %d\n", index, op.OperationType, requestNumber)
 
 		// Esegui la chiamata in una goroutine
 		go func(opType string, args *utils.Args, resp *utils.Response) {
