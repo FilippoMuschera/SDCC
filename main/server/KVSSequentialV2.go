@@ -362,7 +362,7 @@ func (kvs *KVSSequentialV2) ExecuteClientRequest(arg utils.Args, resp *utils.Res
 	/*
 			 Questa funzione non è esposta direttamente verso il client (che utilizzerà le RPC "Get", "Put" e "Delete".
 			 Nel caso di una GET questa funzione provvede a generare un evento INTERNO: verrà dunque creato un messaggio ed inserito
-			 solamente nella coda locale, senza essere inoltrato con l'Update a tutti gli altri server (proprio perché è un evento interno).
+			 nella coda locale. Gli altri server ignoreranno questo messaggio.
 
 			 Per ovviare al fatto che è un messaggio di un evento interno, andrà creato un messaggio i cui ACK risultano già tutti
 			 pervenuti (in maniera "fittizia"). In questo modo verrà eseguito quando sarà il primo della coda e per ogni altro processo
