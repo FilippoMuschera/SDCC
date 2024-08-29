@@ -48,14 +48,6 @@ type MessageQueue struct {
 	QueueMutex sync.Mutex
 }
 
-func NewMessage(args Args, clockValue int, serverIndex int, msgCounter int, opType string) *Message {
-	id := uuid.New()
-	msg := &Message{Args: args, ClockValue: clockValue, UUID: id, ServerIndex: serverIndex, ServerMsgCounter: msgCounter, OpType: opType}
-	msg.Acks.Store(0)
-	return msg
-
-}
-
 func NewMessageQueue() *MessageQueue {
 	return &MessageQueue{Queue: make([]*Message, 0)}
 }
@@ -77,20 +69,20 @@ func (mq *MessageQueue) InsertAndSort(message *Message, alreadyLocked ...bool) *
 	}
 
 	mq.Queue = append(mq.Queue, message)
-	//Ora si esegue il sorting della coda: la coda viene ordinata per valore di clock logico "ClockValue".
-	//A parità di ClockValue, si ordina sulla base dello unique identifier, favorendo quella con lo UUID
+	//Ora si esegue il sorting della coda: la coda viene ordinata per valore di clock logico "ClockVector".
+	//A parità di ClockVector, si ordina sulla base dello unique identifier, favorendo quella con lo UUID
 	//che viene prima in ordine alfabetico
 
 	// Esegui l'ordinamento della coda usando slices.SortStableFunc
 	slices.SortStableFunc(mq.Queue, func(a, b *Message) int {
-		// Prima ordina per ClockValue
+		// Prima ordina per ClockVector
 		if a.ClockValue < b.ClockValue {
 			return -1
 		}
 		if a.ClockValue > b.ClockValue {
 			return 1
 		}
-		// Se ClockValue è uguale, ordina per UUID (in ordine alfabetico)
+		// Se ClockVector è uguale, ordina per UUID (in ordine alfabetico)
 		if a.UUID.String() < b.UUID.String() {
 			return -1
 		}
@@ -113,7 +105,7 @@ func (mq *MessageQueue) InsertAndSort(message *Message, alreadyLocked ...bool) *
 	return message
 }
 
-func (mq *MessageQueue) Pop(m *Message) error {
+func (mq *MessageQueue) Pop(uuid uuid.UUID) error {
 	mq.QueueMutex.Lock()
 	defer mq.QueueMutex.Unlock()
 
@@ -125,9 +117,9 @@ func (mq *MessageQueue) Pop(m *Message) error {
 	}
 
 	// Controlla che il primo messaggio nella coda sia quello specificato
-	if mq.Queue[0].UUID != m.UUID {
+	if mq.Queue[0].UUID != uuid {
 		fmt.Println("\033[31mERRORE NELLA POP: IL MSG NON È IL PRIMO IN CODA\n"+
-			"I am ", m.UUID, " first is ", mq.Queue[0].UUID, "\n\033[0m")
+			"I am ", uuid, " first is ", mq.Queue[0].UUID, "\n\033[0m")
 		return fmt.Errorf("the provided message is not the first in the queue")
 	}
 
@@ -142,7 +134,24 @@ func (mq *MessageQueue) Pop(m *Message) error {
 	}
 
 	// Stampa l'UUID del messaggio che stiamo controllando
-	fmt.Printf("\033[33mChecking message UUID: %s\033[0m\n", m.UUID) // Giallo scuro per UUID del messaggio in controllo*/
+	fmt.Printf("\033[33mChecking message UUID: %s\033[0m\n", uuid) // Giallo scuro per UUID del messaggio in controllo*/
 
 	return nil
+}
+
+type VMessageNA struct {
+	Args        Args      //Args della richiesta
+	ClockVector []int     //clock logico vettoriale
+	UUID        uuid.UUID //unique identifier del messaggio
+	ServerIndex int       //server d'origine
+	OpType      string    //nome operazione
+	FifoIndex   int       //indice per ordinamento fifo operazioni dello stesso processo
+}
+
+func NewVMessageNA(args Args, clockValue []int, serverIndex int, opType string, fifoIndex int) *VMessageNA {
+	id := uuid.New()
+	msg := &VMessageNA{Args: args, ClockVector: clockValue, UUID: id, ServerIndex: serverIndex, OpType: opType, FifoIndex: fifoIndex}
+
+	return msg
+
 }

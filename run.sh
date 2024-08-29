@@ -4,9 +4,9 @@
 export REPLICAS=3
 export LOCAL=1
 export DOCKER=0
-export CONSIST_TYPE=Sequential
+export CONSIST_TYPE=Causal
 export DEBUG=0
-export RANDOM_REPLICA=1
+export RANDOM_REPLICA=0
 
 cd bin || exit
 rm server client

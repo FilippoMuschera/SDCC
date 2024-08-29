@@ -45,10 +45,17 @@ func main() {
 			return
 		}
 	} else if consistType == "Causal" {
-		//TODO
+		causal := NewKVSCasual(index)
+		err = rpc.RegisterName("causal", causal)
+		if err != nil {
+			fmt.Println("Error registering RPC:", err)
+			return
+		}
+	} else {
+		fmt.Println("Unknown consist type:", consistType)
+		os.Exit(1)
 	}
 
-	//local
 	port := utils.GetServerPort(index)
 	addr := "localhost:" + port
 	fmt.Println("Registering server ", index, " at address: ", addr)

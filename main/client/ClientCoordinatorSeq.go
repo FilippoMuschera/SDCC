@@ -18,13 +18,22 @@ type Operation struct {
 	Value         string
 }
 
+var consistType = strings.ToLower(os.Getenv("CONSIST_TYPE"))
+
 func main() {
 	reader := bufio.NewReader(os.Stdin) // Crea un lettore per leggere l'input dell'utente
 	for {
 		// Mostra il prompt all'utente
 		fmt.Println("Select the type of test you want to run:")
-		fmt.Println("[1] Test sequenziale base")
-		fmt.Println("[2] Test sequenziale avanzato")
+		if consistType == "sequential" {
+			fmt.Println("[1] Test sequenziale base")
+			fmt.Println("[2] Test sequenziale avanzato")
+		} else if consistType == "causal" {
+			fmt.Println("[3] Test causale base")
+		} else {
+			fmt.Println("You have an error in you environment configuration: value of 'CONSIST_TYPE' env variable not set or invalid")
+			os.Exit(1)
+		}
 
 		// Legge l'input dell'utente
 		fmt.Print("Enter your choice: ")
@@ -50,6 +59,10 @@ func main() {
 		case "2":
 			fmt.Println("Running 'Test sequenziale avanzato'...")
 			advancedTestSeq()
+			return
+		case "3":
+			fmt.Println("Running 'Test causale base'...")
+			basicCasualTest()
 			return
 		default:
 			fmt.Println("Invalid option, please try again.")
@@ -123,11 +136,11 @@ func executeOperations(index int, operations []Operation) {
 				if op.Key == utils.EndKey && op.Value == utils.EndValue {
 					time.Sleep(5 * time.Second) //Sono op. speciali che servono solo a sbloccare l'ultima exec. Devono necessariamente essere le ultime
 				}
-				err = conn.Call("sequential.Put", args, resp)
+				err = conn.Call(consistType+".Put", args, resp)
 			case utils.Get:
-				err = conn.Call("sequential.Get", args, resp)
+				err = conn.Call(consistType+".Get", args, resp)
 			case utils.Delete:
-				err = conn.Call("sequential.Delete", args, resp)
+				err = conn.Call(consistType+".Delete", args, resp)
 			}
 
 			if err != nil {

@@ -132,7 +132,7 @@ func (kvs *KVSSequentialV2) Update(m utils.MessageNA, resp *utils.Response) erro
 	}
 
 	//Dopo aver passato il messaggio al livello applicativo, procedo ad eliminarlo dalla coda
-	err = kvs.messageQueue.Pop(msg)
+	err = kvs.messageQueue.Pop(msg.UUID)
 	if err != nil {
 		return err
 	}
@@ -226,10 +226,6 @@ func (kvs *KVSSequentialV2) checkIfNextFromServer(msg *utils.Message) bool {
 
 	isNext := kvs.serverList.ReceiveMsgCounter[msg.ServerIndex]+1 == msg.ServerMsgCounter //controllo se il messaggio che mi è arrivato
 	//è effettivamente il prossimo
-
-	/*if isNext {
-		kvs.serverList.ReceiveMsgCounter[msg.ServerIndex] += 1 //se lo è allora lo "ricevo", altrimenti resterà in attesa nella Update
-	}*/
 
 	return isNext
 
