@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+func init() {
+	if os.Getenv("RANDOM_REPLICA") == "1" {
+		fmt.Print("\033[36mUsing a random server for every client\n\033[0m")
+	}
+}
+
 func basicTestSeq() {
 	fmt.Println("In questo test sequenziale, le seguenti operazioni vengono inviate in parallelo ai server:\n")
 
