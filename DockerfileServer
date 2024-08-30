@@ -21,12 +21,6 @@ WORKDIR /app
 # Copiare il binario compilato dalla fase di build
 COPY --from=builder /app/server /app/
 
-# Impostare le variabili d'ambiente
-ENV REPLICAS=3 \
-    LOCAL=1 \
-    DOCKER=0 \
-    CONSIST_TYPE=Sequential \
-    DEBUG=0
 
 # Comando predefinito
 CMD ["./server"]

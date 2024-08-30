@@ -5,12 +5,13 @@ export REPLICAS=3
 export LOCAL=1
 export DOCKER=0
 export CONSIST_TYPE=Causal
-export DEBUG=0
 export RANDOM_REPLICA=0
 
-cd bin || exit
-rm server client
-cd .. || exit
+if [ -d "bin" ]; then
+    cd bin || exit
+    rm -f server client
+    cd .. || exit
+fi
 
 # Compilare il server
 go build -o bin/server ./main/server

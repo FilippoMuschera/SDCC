@@ -7,15 +7,7 @@ import (
 	"net/rpc"
 	"os"
 	"strconv"
-	"time"
 )
-
-func init() {
-	if os.Getenv("DEBUG") == "1" {
-		fmt.Println("Waiting for debugger to attach...")
-		time.Sleep(10 * time.Second) // Pause for 20 seconds to attach debugger
-	}
-}
 
 func main() {
 	// Check command line arguments
