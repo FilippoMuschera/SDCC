@@ -8,7 +8,7 @@ Modificando lo script `run.sh` si possono andare a settare le diverse variabili 
 Per una spiegazione dettagliata delle variabili d'ambiente si veda la sezione [Environment](#environment).
 
 Se si vuole eseguire il progetto tramite l'utilizzo di Docker Compose si può utilizzare il comando
-`docker-compose up --build`. In questo modo ogni server verrà eseguito all'interno di un container dedicato. 
+`sudo docker-compose up --build`. In questo modo ogni server verrà eseguito all'interno di un container dedicato. 
 In questo caso per andare a modificare le variabili d'ambiente sarà sufficiente modificare il file
 `.env` secondo le proprie esigenze.
 
@@ -31,7 +31,7 @@ in fase di setup dell'istanza.
 
 A questo punto nel terminale verranno mostrati tutti gli output dei vari container.
 
-Se si vuole osservare meglio gli output di uno specifico container è consigliabile collegarsi 
+Se si vogliono osservare meglio gli output di uno specifico container è consigliabile collegarsi 
 all'istanza EC2 da un secondo terminale (sempre via ssh), e a questo punto eseguire il comando
 `sudo docker ps` per vedere i container attivi. Una volta scelto il container che si vuole visualizzare
 nello specifico si può eseguire il comando `sudo docker logs -f <container-id>`, per visualizzare tutti
@@ -52,7 +52,7 @@ Infine per arrestare del tutto docker: `sudo service docker stop 2> /dev/null &&
 - `DOCKER`: '1' se si vuole utilizzare Docker, '0' altrimenti (N.B.: Se `LOCAL` è impostato a '1' avrà la priorità su questa variabile d'ambiente. Quindi se si vuole eseguire il progetto con Docker Compose è necessario settare `LOCAL=0` e `DOCKER=1`).
 - `CONSIST_TYPE`: 'Sequential' o 'Causal', in base a quella che si vuole che lo storage garantisca durante l'esecuzione. 
 - `DOCKER_OP`: Quale operazione si vuole eseguire se si esegue il progetto tramite Docker Compose. Quando si esegue in locale è possibile sceglierla tramite un prompt interattivo, con Docker Compose si può inserire in questa variabile il numero dell'operazione desiderata. I possibili valori sono '1' o '2' con la consistenza sequenziale, '3' o '4' con quella causale.
-- `RANDOM_REPLICA`: '1' o '0'. Se settata a '0' ogni client parlerà con il server "corrispettivo" (client-1 con server-1, client-2 con server-2, e così via). Altrimenti ogni client sceglierà casualmente il server con cui comunicare (N.B.: Il sistema è realizzato in modo che se ci sono N repliche e N client, anche se casualmente, ogni client sceglierà un server diverso, in modo da non avere server inutilizzati).
+- `RANDOM_REPLICA`: '1' o '0'. Se settata a '0' ogni client comunicherà con il server "corrispettivo" (client-1 con server-1, client-2 con server-2, e così via). Altrimenti ogni client sceglierà casualmente il server con cui comunicare (N.B.: Il sistema è realizzato in modo che se ci sono N repliche e N client, anche se casualmente, ogni client sceglierà un server diverso, in modo da non avere server inutilizzati).
 
 ### Operazioni
 Le operazioni che si possono lanciare all'avvio del progetto sono:
