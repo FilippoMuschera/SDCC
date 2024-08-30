@@ -30,6 +30,8 @@ func main() {
 			fmt.Println("[2] Test sequenziale avanzato")
 		} else if consistType == "causal" {
 			fmt.Println("[3] Test causale base")
+			fmt.Println("[4] Test causale avanzato")
+
 		} else {
 			fmt.Println("You have an error in you environment configuration: value of 'CONSIST_TYPE' env variable not set or invalid")
 			os.Exit(1)
@@ -63,6 +65,10 @@ func main() {
 		case "3":
 			fmt.Println("Running 'Test causale base'...")
 			basicCasualTest()
+			return
+		case "4":
+			fmt.Println("Running 'Test causale avanzato'...")
+			advancedCasualTest()
 			return
 		default:
 			fmt.Println("Invalid option, please try again.")

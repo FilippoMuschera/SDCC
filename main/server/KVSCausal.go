@@ -151,9 +151,9 @@ func (kvs *KVSCausal) WaitUntilExecutable(msg *utils.VMessageNA) {
 	}
 
 	//Che sia un evento che arriva dal server stesso o da un altro, se è una GET bisogna rispettare la (potenziale)
-	//relazione cause-effetto -> deve superare quest'ultimo controllo.
+	//relazione cause-effetto -> deve superare quest'ultimo controllo. Analogamente per la delete
 
-	if msg.OpType == utils.Get {
+	if msg.OpType == utils.Get || msg.OpType == utils.Delete {
 		cond3 := make(chan bool)
 		go func() {
 			for {
@@ -165,7 +165,7 @@ func (kvs *KVSCausal) WaitUntilExecutable(msg *utils.VMessageNA) {
 			}
 		}()
 		<-cond3
-		fmt.Printf("\033[32mControllo haveSeenEnoughMessages superato per il messaggio %s\033[0m\n", msg.UUID)
+		fmt.Printf("\033[32mControllo presenza chiave superato per il messaggio %s\033[0m\n", msg.UUID)
 	}
 
 	//Una volta verificatesi tutte le condizioni, il controllo può tornare alla funzione chiamante e il messaggio
@@ -194,6 +194,10 @@ func (kvs *KVSCausal) CallRealOperation(msg *utils.VMessageNA, resp *utils.Respo
 
 	case utils.Delete:
 		// Implementazione dell'operazione Delete
+		_, ok := kvs.store[msg.Args.Key]
+		if !ok {
+			panic("delete key does not exist!")
+		}
 		delete(kvs.store, msg.Args.Key) //Se la chiave non c'è ho una no-op ed è il comportamento desiderato
 		fmt.Printf("Delete operation completed. Key: %s\n", msg.Args.Key)
 
