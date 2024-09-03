@@ -2,6 +2,7 @@ package main
 
 import (
 	"SDCC/main/utils"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -151,9 +152,11 @@ func (kvs *KVSCausal) WaitUntilExecutable(msg *utils.VMessageNA) {
 	}
 
 	//Che sia un evento che arriva dal server stesso o da un altro, se è una GET bisogna rispettare la (potenziale)
-	//relazione cause-effetto -> deve superare quest'ultimo controllo. Analogamente per la delete
+	//relazione cause-effetto -> deve superare quest'ultimo controllo. Analogamente per la delete (se richiesto dalla configurazione
 
-	if msg.OpType == utils.Get || msg.OpType == utils.Delete {
+	isDeleteCausal := msg.OpType == utils.Delete && os.Getenv("DELETE_CAUSAL") == "1"
+
+	if msg.OpType == utils.Get || isDeleteCausal {
 		cond3 := make(chan bool)
 		go func() {
 			for {
@@ -196,7 +199,7 @@ func (kvs *KVSCausal) CallRealOperation(msg *utils.VMessageNA, resp *utils.Respo
 		// Implementazione dell'operazione Delete
 		_, ok := kvs.store[msg.Args.Key]
 		if !ok {
-			panic("delete key does not exist!")
+			return errors.New("delete operation failed. Key not found")
 		}
 		delete(kvs.store, msg.Args.Key) //Se la chiave non c'è ho una no-op ed è il comportamento desiderato
 		fmt.Printf("Delete operation completed. Key: %s\n", msg.Args.Key)

@@ -53,6 +53,7 @@ Infine per arrestare del tutto docker: `sudo service docker stop 2> /dev/null &&
 - `CONSIST_TYPE`: 'Sequential' o 'Causal', in base a quella che si vuole che lo storage garantisca durante l'esecuzione. 
 - `DOCKER_OP`: Quale operazione si vuole eseguire se si esegue il progetto tramite Docker Compose. Quando si esegue in locale è possibile sceglierla tramite un prompt interattivo, con Docker Compose si può inserire in questa variabile il numero dell'operazione desiderata. I possibili valori sono '1' o '2' con la consistenza sequenziale, '3' o '4' con quella causale.
 - `RANDOM_REPLICA`: '1' o '0'. Se settata a '0' ogni client comunicherà con il server "corrispettivo" (client-1 con server-1, client-2 con server-2, e così via). Altrimenti ogni client sceglierà casualmente il server con cui comunicare (N.B.: Il sistema è realizzato in modo che se ci sono N repliche e N client, anche se casualmente, ogni client sceglierà un server diverso, in modo da non avere server inutilizzati).
+- `DELETE_CAUSAL`: Stabilisce se l'operazione di delete va considerata in relazione di causa-effetto con una write ("1") oppure no ("0").
 
 ### Operazioni
 Le operazioni che si possono lanciare all'avvio del progetto sono:
