@@ -271,7 +271,7 @@ func (kvs *KVSSequentialV2) checkForHigherClocks(msg *utils.Message) bool {
 
 }
 
-//goland:noinspection GoUnusedParameter
+// ReceiveAck -> resp *utils.Response non è utilizzato ma è necessario per poter essere conforme alle funzioni chiamabili come RPC in Go
 func (kvs *KVSSequentialV2) ReceiveAck(msg utils.MessageNA, resp *utils.Response) error {
 
 	kvs.messageQueue.QueueMutex.Lock()

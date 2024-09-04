@@ -101,7 +101,7 @@ func (kvs *KVSCausal) WaitUntilExecutable(msg *utils.VMessageNA) {
 			 2. tsm[k] ≤ Vj[k] per ogni k =/= i:
 				per ogni altro processo pk, pj ha visto almeno gli stessi messaggi visti da pi
 
-			3. Se è una read devo aspettare l'operazione di write da cui ha una dipendenza causale
+			3. Se è una read (o eventualmente una delete) devo aspettare l'operazione di write da cui ha una dipendenza causale
 
 			 Se tutte le condizioni sono rispettate, allora la funzione ritornerà il controllo al chiamante, e procederà
 			 all'esecuzione della RPC di livello applicativo.
@@ -152,7 +152,7 @@ func (kvs *KVSCausal) WaitUntilExecutable(msg *utils.VMessageNA) {
 	}
 
 	//Che sia un evento che arriva dal server stesso o da un altro, se è una GET bisogna rispettare la (potenziale)
-	//relazione cause-effetto -> deve superare quest'ultimo controllo. Analogamente per la delete (se richiesto dalla configurazione
+	//relazione cause-effetto -> deve superare quest'ultimo controllo. Analogamente per la delete (se richiesto dalla configurazione)
 
 	isDeleteCausal := msg.OpType == utils.Delete && os.Getenv("DELETE_CAUSAL") == "1"
 

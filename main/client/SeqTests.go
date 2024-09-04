@@ -28,19 +28,19 @@ func basicTestSeq() {
 	fmt.Println(" +-----------+-----------+-----------+-----------+-----------+")
 
 	operations := []Operation{
-		// Operazioni per Processo 1
+		// Operazioni per Processo 0
 		{ClientIndex: 0, OperationType: utils.Put, Key: "x", Value: "1"},
 		{ClientIndex: 0, OperationType: utils.Get, Key: "x"},
 		{ClientIndex: 0, OperationType: utils.Delete, Key: "x"},
 		{ClientIndex: 0, OperationType: utils.Get, Key: "x"},
 
-		// Operazioni per Processo 2
+		// Operazioni per Processo 1
 		{ClientIndex: 1, OperationType: utils.Put, Key: "x", Value: "2"},
 		{ClientIndex: 1, OperationType: utils.Get, Key: "x"},
 		{ClientIndex: 1, OperationType: utils.Delete, Key: "x"},
 		{ClientIndex: 1, OperationType: utils.Get, Key: "x"},
 
-		// Operazioni per Processo 3
+		// Operazioni per Processo 2
 		{ClientIndex: 2, OperationType: utils.Put, Key: "x", Value: "3"},
 		{ClientIndex: 2, OperationType: utils.Get, Key: "x"},
 		{ClientIndex: 2, OperationType: utils.Delete, Key: "x"},
