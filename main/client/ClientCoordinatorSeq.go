@@ -24,7 +24,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin) // Crea un lettore per leggere l'input dell'utente
 	for {
 		// Mostra il prompt all'utente
-		fmt.Println("Select the type of test you want to run:")
+		fmt.Println("Selezionare il test che si vuole eseguire:")
 		if consistType == "sequential" {
 			fmt.Println("[1] Test sequenziale base")
 			fmt.Println("[2] Test sequenziale avanzato")
@@ -36,6 +36,8 @@ func main() {
 			fmt.Println("You have an error in you environment configuration: value of 'CONSIST_TYPE' env variable not set or invalid")
 			os.Exit(1)
 		}
+		fmt.Println("[5] Esci")
+		printMenuExplanation()
 
 		// Legge l'input dell'utente
 		fmt.Print("Enter your choice: ")
@@ -70,10 +72,36 @@ func main() {
 			fmt.Println("Running 'Test causale avanzato'...")
 			advancedCasualTest()
 			return
+		case "5":
+			fmt.Println("Exiting...")
+			return
 		default:
 			fmt.Println("Invalid option, please try again.")
 		}
 	}
+}
+
+func printMenuExplanation() {
+	// Codice ANSI per il giallo scuro (Yellow = 33)
+	yellow := "\033[33m"
+	reset := "\033[0m"
+
+	// Ottieni il tipo di consistenza dall'ambiente
+	consistType := os.Getenv("CONSIST_TYPE")
+
+	if consistType == "Sequential" {
+		fmt.Printf(yellow + "\n╔════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+		fmt.Printf("║ N.B.: Avendo selezionato la consistenza 'Sequential', sono visibili solo i test [1] e [2]. ║\n")
+		fmt.Printf("║ Per vedere gli altri, assicurati di cambiare il tipo di consistenza scelta!                ║\n")
+		fmt.Printf("╚════════════════════════════════════════════════════════════════════════════════════════════╝\n" + reset)
+
+	} else if consistType == "Causal" {
+		fmt.Printf(yellow + "\n╔════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+		fmt.Printf("║ N.B.: Avendo selezionato la consistenza 'Causal', sono visibili solo i test [3] e [4].     ║\n")
+		fmt.Printf("║ Per vedere gli altri, assicurati di cambiare il tipo di consistenza scelta!                ║\n")
+		fmt.Printf("╚════════════════════════════════════════════════════════════════════════════════════════════╝\n" + reset)
+	}
+
 }
 
 func addEndOps(replicas int) []Operation {
