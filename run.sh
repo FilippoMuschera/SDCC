@@ -4,7 +4,8 @@
 export REPLICAS=3
 export LOCAL=1
 export DOCKER=0
-export CONSIST_TYPE=Causal
+export CONSIST_TYPE=Sequential
+# export CONSIST_TYPE=Causal
 export RANDOM_REPLICA=0
 export DELETE_CAUSAL=1
 
