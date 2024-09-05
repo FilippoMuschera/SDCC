@@ -16,6 +16,8 @@ type VectLogicalClock struct {
 	clockVectorMutex sync.Mutex
 }
 
+var isFirstReq = true
+
 // KVSCausal is a concrete implementation of the KVS interface
 type KVSCausal struct {
 	index                 int               //indice della replica corrente
@@ -42,7 +44,6 @@ func NewKVSCasual(index int) *KVSCausal {
 			clockVector: make([]int, numOfReplicas),
 		},
 	}
-	go kvs.printMapAfterExecution()
 	return kvs
 }
 
@@ -221,6 +222,8 @@ func (kvs *KVSCausal) ExecuteClientRequest(arg utils.Args, resp *utils.Response,
 
 	//Condizione 0: FIFO ordering per le richieste dai client
 
+	go kvs.printMapAfterExecution()
+
 	cond0 := make(chan bool)
 	go func() {
 		for {
@@ -351,7 +354,13 @@ func (kvs *KVSCausal) isFifoOrdered(msg *utils.VMessageNA) bool {
 }
 
 func (kvs *KVSCausal) printMapAfterExecution() {
-	time.Sleep(10 * time.Second)
+	if isFirstReq {
+		isFirstReq = false
+	} else {
+		return
+	}
+
+	time.Sleep(15 * time.Second)
 
 	// Stampa in maniera formattata il contenuto della map
 	kvs.mapMutex.Lock()
