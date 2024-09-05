@@ -54,6 +54,8 @@ func main() {
 		// Rimuovi spazi bianchi e newline
 		input = strings.TrimSpace(input)
 
+		checkInput(input)
+
 		// Verifica l'opzione scelta
 		switch input {
 		case "1":
@@ -79,6 +81,23 @@ func main() {
 			fmt.Println("Invalid option, please try again.")
 		}
 	}
+}
+
+func checkInput(input string) {
+	consist := os.Getenv("CONSIST_TYPE")
+
+	if consist == "Sequential" {
+		if input != "1" && input != "2" {
+			fmt.Println("ERRORE: Tipo di test incompatibile con il tipo di consistenza scelto")
+			os.Exit(1)
+		}
+	} else if consist == "Causal" {
+		if input != "3" && input != "4" {
+			fmt.Println("ERRORE: Tipo di test incompatibile con il tipo di consistenza scelto")
+			os.Exit(1)
+		}
+	}
+
 }
 
 func printMenuExplanation() {
