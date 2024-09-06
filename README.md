@@ -16,6 +16,7 @@ In questo caso per andare a modificare le variabili d'ambiente sarà sufficiente
 Dopo aver opportunamente avviato un'istanza EC2 dalla dashboard di AWS sarà necessario collegarvisi via SSH.
 Per farlo sarà sufficiente eseguire il comando `ssh -i <private-key>.pem ec2-user@<VM-Public-IPv4>`, utilizzando la coppia di chiavi prodotta
 in fase di setup dell'istanza.
+Durante la fase di testing del progetto sono state utilizzate istanze EC2 con AMI Amazon Linux.
 
 1. Installazione delle dipendenze:
    1. `sudo yum install docker -y` per installare docker
