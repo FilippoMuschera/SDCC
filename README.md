@@ -44,7 +44,9 @@ lanciato Docker Compose.
 Se si vuole pulire del tutto l'ambiente di esecuzione si può eseguire il comando `sudo docker rm $(sudo docker ps -a -q)`
 per eliminare tutti i container.
 
-Infine per arrestare del tutto docker: `sudo service docker stop 2> /dev/null && sudo systemctl stop docker.socket`.
+Per arrestare del tutto Docker: `sudo service docker stop 2> /dev/null && sudo systemctl stop docker.socket`.
+
+Se infine si desidera eliminare tutta la cache di Docker si può eseguire il comando `sudo docker builder prune -a`.
 
 
 ### Environment
